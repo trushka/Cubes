@@ -1,4 +1,4 @@
-var density=2, pSise=60, left=.2, right=.8,
+var density=.5, pSise=160, left=.2, right=.8,
 	force=.1, parallax=1000, color='#fff',
 	scroll0=scrollY, ds=0, camera, scene, renderer, light, pos0, size,
 	raycaster=new THREE.Raycaster(), particles=[], 
@@ -26,19 +26,23 @@ renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, canvas: canvas})
 camera = new THREE.PerspectiveCamera( 18, aspect, 5000, 15000 );
 //camera.position.z=1000
 scene = new THREE.Scene();
-light=new THREE.HemisphereLight('#fff', 0, 23)
-scene.add(light);
-light.position.set(0,.5,1)
+lightH=new THREE.HemisphereLight('#def', 0, 8)
+lightD=new THREE.DirectionalLight('#ffd', .2)
+lightD1=new THREE.DirectionalLight('#ffd', .2)
+scene.add(lightH, lightD, lightD1);
+lightH.position.set(0,.8,1);
+lightD.position.set(0.55,2,-1.3);
+lightD.position.set(-0.55,2,-1.3);
 var material = new THREE.MeshStandardMaterial({
-	metalness: .964,
-	roughness: .5
+	metalness: .968,
+	roughness: .25
 });//, opacity: 0
 material.color.set(color);
 //material.side=2;
 
 function init() {
 	var l=particles.length, size0=size, scrSize=pSise/H/2,
-		bCount=Math.round(W*H*(right-left)/10000*density);
+		bCount=Math.round(W*H/10000*density);
 	size=vec3(0, scrSize, 0).unproject(camera).y;
 	for (var i = 0; i < l; i++) {
 		if (i<bCount) {
@@ -48,10 +52,10 @@ function init() {
 	}
 	for (var i = l, geom, pos=vec3(), sizeI, x; i < bCount; i++) {
 		sizeI=size*rnd(.2, 1)
-		geom=new THREE[rnd()>.5?'TetrahedronBufferGeometry':'OctahedronBufferGeometry'](sizeI);
+		geom=new THREE.BoxBufferGeometry(sizeI, sizeI, sizeI);//[rnd()>.5?'TetrahedronBufferGeometry':'OctahedronBufferGeometry'];
 		scene.add(particles[i]=new THREE.Mesh(geom, material));
 
-		x=l?(i%2?rnd(-scrSize*3)-1-scrSize/2:1+rnd(scrSize*3)+scrSize/2):(i%2?rnd(left*2)-1:1-rnd(2-right*2));
+		x=rnd(2, -1);
 		particles[i].position.set(x, rnd(2)-1, rnd(1.8)-.9).unproject(camera);
 		particles[i].rotation.set(rnd(PI), rnd(PI), rnd(PI));
 		particles[i].frustumCulled=false;
@@ -92,8 +96,8 @@ requestAnimationFrame( function animate() {
 		for (var i = 0, scrPos, pos, tr; i < particles.length; i++) {
 			tr=bTrans[i]; pos=particles[i].position;
 			pos.y+=dY;
-			tr.dq._x+=rnd(.001,-.0005); tr.dq._y+=rnd(.001,-.0005); tr.dq._z+=rnd(.001,-.0005);
-			tr.dq._x*=.996; tr.dq._y*=.996; tr.dq._z*=.996;
+			tr.dq._x+=rnd(.0001,-.00005); tr.dq._y+=rnd(.0001,-.00005); tr.dq._z+=rnd(.0001,-.00005);
+			tr.dq._x*=.999; tr.dq._y*=.999; tr.dq._z*=.999;
 			particles[i].applyQuaternion(tr.dq.normalize());
 			scrPos=pos.clone()
 			scrPos.x+=(scrPos.x<0?tr.size:-tr.size);
@@ -102,8 +106,8 @@ requestAnimationFrame( function animate() {
 			scrPos.project(camera);
 			scrPos.x=(scrPos.x+1)/2;
 
-			if ((scrPos.x<0 || (!(i%2) && scrPos.x<right)) && tr.dp.x<tr.size*3) tr.dp.x+=force;
-			if ((scrPos.x>1 || (i%2 && scrPos.x>left)) && -tr.dp.x<tr.size*3) tr.dp.x-=force;
+			if (scrPos.x<0 && tr.dp.x<tr.size*3) tr.dp.x+=force;
+			if (scrPos.x>1 && -tr.dp.x<tr.size*3) tr.dp.x-=force;
 			if (scrPos.y<-1 || scrPos.y>1) pos.y*=-1;
 			if (scrPos.z<-1) tr.dp.z-=force;
 			if (scrPos.z>1) tr.dp.z+=force;
