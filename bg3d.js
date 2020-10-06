@@ -1,7 +1,9 @@
-var density=.5, pSise=160, left=.2, right=.8,
-	force=.1, parallax=1000, color='#fff',
-	scroll0=scrollY, ds=0, camera, scene, renderer, light, pos0, size,
-	raycaster=new THREE.Raycaster(), particles=[], 
+var density=.5, pSise=160, bevel=1 ,Cu=.15,
+	bumpMap='bump.jpg',
+	force=.1, parallax=1000,
+	color='#bcc', CuColor='#fa5',
+	scroll0=scrollY, ds=0, camera, scene, cubes, renderer, light, pos0, size,
+	raycaster=new THREE.Raycaster(), particles, 
 	vec3=function(x,y,z){return new THREE.Vector3(x||0, y||0, z||0)}, lookAt=vec3(0,0,0), PI=Math.PI;
 
 THREE.Clock.prototype.getDelta=function(max, min){
@@ -22,50 +24,122 @@ var canvas=document.querySelector('#renderer'),
 var bgObj, bGeometry=new THREE.BufferGeometry(), bVerts=[], bTrans=[], bRR=bR*bR, bRR2=(bR+bdR)*(bR+bdR);
 
 renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, canvas: canvas});//
-//renderer.context.getExtension('OES_standard_derivatives');
+renderer.shadowMap.enabled = true;
+
+
 camera = new THREE.PerspectiveCamera( 18, aspect, 5000, 15000 );
 //camera.position.z=1000
 scene = new THREE.Scene();
-lightH=new THREE.HemisphereLight('#def', 0, 8)
-lightD=new THREE.DirectionalLight('#ffd', .2)
-lightD1=new THREE.DirectionalLight('#ffd', .2)
-scene.add(lightH, lightD, lightD1);
+cubes = new THREE.Group();
+particles=cubes.children;
+lightH=new THREE.HemisphereLight('#cdf', 0, 16)
+scene.add(lightH,  cubes);
 lightH.position.set(0,.8,1);
-lightD.position.set(0.55,2,-1.3);
-lightD.position.set(-0.55,2,-1.3);
-var material = new THREE.MeshStandardMaterial({
-	metalness: .968,
-	roughness: .25
-});//, opacity: 0
-material.color.set(color);
-//material.side=2;
 
-function init() {
-	var l=particles.length, size0=size, scrSize=pSise/H/2,
+new THREE.IcosahedronGeometry(1,1).vertices.forEach(v=>{
+	console.log(v);
+	if (v.z<-.6) return;
+	var light=new THREE.DirectionalLight('#fff', (v.y+.75)/35);
+	light.position.copy(v);
+	light.castShadow = false//(v.z>0&&v.y>.5);
+	scene.add(light);
+})
+
+bTexture=new THREE.TextureLoader().load(bumpMap);
+var material = new THREE.MeshStandardMaterial({
+	flatShading:true,
+	metalness: .98,
+	roughness: .2,
+	color: color,
+	//bumpMap: bTexture,
+	roughnessMap: bTexture,
+	aoMap: bTexture,
+	aoMapIntensity: .6,
+	//bumpScale: .01
+}),
+	CuMaterial=material.clone();//, opacity: 0
+CuMaterial.color.set(CuColor);
+bTexture.repeat.set(.003, .003);
+bTexture.offset.set(1.5, 1.5);
+bTexture.wrapS = bTexture.wrapT = THREE.MirroredRepeatWrapping;
+
+function cubeGeometry( size, bevel ) {
+  var x=size/2;
+  var y=size/2;
+  let shape = new THREE.Shape();
+  shape.moveTo(x, y-bevel);
+  shape.lineTo(x, -y+bevel);
+  shape.lineTo(x-bevel, -y);
+  shape.lineTo(-x+bevel, -y);
+  shape.lineTo(-x, -y+bevel);
+  shape.lineTo(-x, y-bevel);
+  shape.lineTo(-x+bevel, y);
+  shape.lineTo(x-bevel, y);
+  let geometry = new THREE.ExtrudeBufferGeometry( shape, {
+    depth: size - bevel * 2,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    steps: 1,
+    bevelSize: bevel,
+    bevelThickness: bevel,
+    bevelOffset: -bevel
+  });
+  
+  geometry.center();
+  
+  return geometry;
+}
+
+function init(w0) {
+	var l=particles.length,
+		size0=size, positions=[],
+		scrSize=pSise/H/2, size2=scrSize*scrSize*6, minS=size2,
 		bCount=Math.round(W*H/10000*density);
 	size=vec3(0, scrSize, 0).unproject(camera).y;
-	for (var i = 0; i < l; i++) {
-		if (i<bCount) {
-			particles[i].scale.multiplyScalar(size/size0);
-			bTrans[i].size*=size/size0
-		} else {scene.remove(particles[i])};
+	var scale=size/size0;
+	if (l) {
+		for (var i = 0; i < l; i++) {
+			let cube=particles[i],
+				pos=cube.position.multiply(vec3(scale, scale,1)).clone().project(camera);
+			if (Math.abs(pos.x)+scrSize>1 || Math.abs(pos.y)>1){
+				cubes.remove(cube);
+				i--; l--;
+			} else {
+				cube.scale.multiplyScalar(scale);
+				cube.bTrans.size*=size/size0;
+				positions.push(pos)
+			}
+		}
 	}
-	for (var i = l, geom, pos=vec3(), sizeI, x; i < bCount; i++) {
-		sizeI=size*rnd(.2, 1)
-		geom=new THREE.BoxBufferGeometry(sizeI, sizeI, sizeI);//[rnd()>.5?'TetrahedronBufferGeometry':'OctahedronBufferGeometry'];
-		scene.add(particles[i]=new THREE.Mesh(geom, material));
+	var CuCount=Math.round((bCount-l)*Cu);
+	//console.log(W,w0)
+	function setPos(dist) {
+		var x=rnd(2)-1, y=rnd(2)-1, pos;
 
-		x=rnd(2, -1);
-		particles[i].position.set(x, rnd(2)-1, rnd(1.8)-.9).unproject(camera);
-		particles[i].rotation.set(rnd(PI), rnd(PI), rnd(PI));
-		particles[i].frustumCulled=false;
-		bTrans[i]={
+		if (positions.some(p=>(x-p.x)*(x-p.x)+(y-p.y)*(y-p.y)<dist)) return setPos(dist*.9999);
+
+		minS=Math.min(minS, dist);
+		positions.push(pos=vec3(x, y, rnd(1.8)-.9));
+		return pos.clone().unproject(camera);
+	}
+	for (var i = 0, geom, pos=vec3(), sizeI, cube, x, dw=(W-w0)/W; i < bCount-l; i++) {
+		sizeI=size*rnd(.2, 1);
+		geom=cubeGeometry(sizeI, bevel);
+		cube=new THREE.Mesh(geom, i>CuCount?material:CuMaterial);
+		cubes.add(cube);
+		cube.castShadow=cube.receiveShadow=true;
+		cube.position.copy(setPos(size2));
+
+		cube.rotation.set(rnd(PI), rnd(PI), rnd(PI));
+		//particles[i].frustumCulled=false;
+		cube.bTrans={
 			dq: new THREE.Quaternion(),
 			dp: vec3(),
 			size: sizeI
 		}
 	}
-	particles.length=bCount;
+	console.log(minS/scrSize/scrSize);
+	//particles.length=bCount;
 };
 
 requestAnimationFrame( function animate() {
@@ -75,6 +149,7 @@ requestAnimationFrame( function animate() {
 	var pos=canvas._pos=canvas.getBoundingClientRect(), resize;
 	if (pos.bottom<=0 || pos.top>=window.innerHeight) return;
 	if (W!=pos.width || H!==pos.height) {
+		let w0=W;
 		W=pos.width;
 		H=pos.height;
 		vMin=Math.min(W,H);
@@ -82,7 +157,7 @@ requestAnimationFrame( function animate() {
 		camera.aspect=W/H;
 		camera.updateProjectionMatrix();
 		resize=1;
-		init();
+		init(W>w0?w0:0);
 	}
 	if (dpr!=(dpr=window.devicePixelRatio) ) {
 		renderer.setPixelRatio( dpr );
@@ -94,10 +169,10 @@ requestAnimationFrame( function animate() {
 	if (1) {
 		// background random movement
 		for (var i = 0, scrPos, pos, tr; i < particles.length; i++) {
-			tr=bTrans[i]; pos=particles[i].position;
+			tr=particles[i].bTrans; pos=particles[i].position;
 			pos.y+=dY;
 			tr.dq._x+=rnd(.0001,-.00005); tr.dq._y+=rnd(.0001,-.00005); tr.dq._z+=rnd(.0001,-.00005);
-			tr.dq._x*=.999; tr.dq._y*=.999; tr.dq._z*=.999;
+			tr.dq._x*=.996; tr.dq._y*=.996; tr.dq._z*=.996;
 			particles[i].applyQuaternion(tr.dq.normalize());
 			scrPos=pos.clone()
 			scrPos.x+=(scrPos.x<0?tr.size:-tr.size);
@@ -111,7 +186,7 @@ requestAnimationFrame( function animate() {
 			if (scrPos.y<-1 || scrPos.y>1) pos.y*=-1;
 			if (scrPos.z<-1) tr.dp.z-=force;
 			if (scrPos.z>1) tr.dp.z+=force;
-			pos.add(tr.dp.add(vec3(rnd(.1,-.05), rnd(.1,-.05), rnd(.1,-.05))).multiplyScalar(.995));
+			pos.add(tr.dp.add(vec3(rnd(.01,-.005), rnd(.01,-.005), rnd(.01,-.005))).multiplyScalar(.995));
 		}
 	}
 	//letter.position.add(vec3(Math.random()-.5,Math.random()-.5,Math.random()-.5).multiplyScalar(1))
