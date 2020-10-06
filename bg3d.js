@@ -1,7 +1,7 @@
-var density=.5, pSise=160, bevel=1 ,Cu=.15,
+var density=.22, pSise=175, bevel=.6 ,Cu=.15,
 	bumpMap='bump.jpg',
 	force=.1, parallax=1000,
-	color='#bcc', CuColor='#fa5',
+	color='#eed', CuColor='#fa5',
 	scroll0=scrollY, ds=0, camera, scene, cubes, renderer, light, pos0, size,
 	raycaster=new THREE.Raycaster(), particles, 
 	vec3=function(x,y,z){return new THREE.Vector3(x||0, y||0, z||0)}, lookAt=vec3(0,0,0), PI=Math.PI;
@@ -24,7 +24,7 @@ var canvas=document.querySelector('#renderer'),
 var bgObj, bGeometry=new THREE.BufferGeometry(), bVerts=[], bTrans=[], bRR=bR*bR, bRR2=(bR+bdR)*(bR+bdR);
 
 renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, canvas: canvas});//
-renderer.shadowMap.enabled = true;
+//renderer.shadowMap.enabled = true;
 
 
 camera = new THREE.PerspectiveCamera( 18, aspect, 5000, 15000 );
@@ -32,14 +32,15 @@ camera = new THREE.PerspectiveCamera( 18, aspect, 5000, 15000 );
 scene = new THREE.Scene();
 cubes = new THREE.Group();
 particles=cubes.children;
-lightH=new THREE.HemisphereLight('#cdf', 0, 16)
+lightH=new THREE.HemisphereLight('#cdd', 0, 20)
 scene.add(lightH,  cubes);
 lightH.position.set(0,.8,1);
 
-new THREE.IcosahedronGeometry(1,1).vertices.forEach(v=>{
-	console.log(v);
-	if (v.z<-.6) return;
-	var light=new THREE.DirectionalLight('#fff', (v.y+.75)/35);
+new THREE.IcosahedronGeometry(1,2).vertices.forEach((v, i)=>{
+	//console.log(v);
+	if (v.z<-.5 || i%2) return;
+	var light=new THREE.DirectionalLight('#fff', (v.y+.75)/120);
+	if (v.y<.06 && Math.random()>.5) light.intensity*=-1;
 	light.position.copy(v);
 	light.castShadow = false//(v.z>0&&v.y>.5);
 	scene.add(light);
@@ -48,13 +49,13 @@ new THREE.IcosahedronGeometry(1,1).vertices.forEach(v=>{
 bTexture=new THREE.TextureLoader().load(bumpMap);
 var material = new THREE.MeshStandardMaterial({
 	flatShading:true,
-	metalness: .98,
+	metalness: .979,
 	roughness: .2,
 	color: color,
 	//bumpMap: bTexture,
 	roughnessMap: bTexture,
 	aoMap: bTexture,
-	aoMapIntensity: .6,
+	aoMapIntensity: .7,
 	//bumpScale: .01
 }),
 	CuMaterial=material.clone();//, opacity: 0
@@ -127,7 +128,7 @@ function init(w0) {
 		geom=cubeGeometry(sizeI, bevel);
 		cube=new THREE.Mesh(geom, i>CuCount?material:CuMaterial);
 		cubes.add(cube);
-		cube.castShadow=cube.receiveShadow=true;
+		//cube.castShadow=cube.receiveShadow=true;
 		cube.position.copy(setPos(size2));
 
 		cube.rotation.set(rnd(PI), rnd(PI), rnd(PI));
