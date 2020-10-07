@@ -36,11 +36,11 @@ lightH=new THREE.HemisphereLight('#cdd', 0, 20)
 scene.add(lightH,  cubes);
 lightH.position.set(0,.8,1);
 
-new THREE.IcosahedronGeometry(1,2).vertices.forEach((v, i)=>{
+new THREE.IcosahedronGeometry(1,1).vertices.forEach((v, i)=>{
 	//console.log(v);
-	if (v.z<-.5 || i%2) return;
+	if (v.z<-.6) return;
 	var light=new THREE.DirectionalLight('#fff', (v.y+.75)/120);
-	if (v.y<.06 && Math.random()>.5) light.intensity*=-1;
+	if (v.y<.06 && v.z<.04 && Math.random()>.5) light.intensity*=-1;
 	light.position.copy(v);
 	light.castShadow = false//(v.z>0&&v.y>.5);
 	scene.add(light);
@@ -173,7 +173,7 @@ requestAnimationFrame( function animate() {
 			tr=particles[i].bTrans; pos=particles[i].position;
 			pos.y+=dY;
 			tr.dq._x+=rnd(.0001,-.00005); tr.dq._y+=rnd(.0001,-.00005); tr.dq._z+=rnd(.0001,-.00005);
-			tr.dq._x*=.996; tr.dq._y*=.996; tr.dq._z*=.996;
+			tr.dq.slerp(new THREE.Quaternion(), .05);
 			particles[i].applyQuaternion(tr.dq.normalize());
 			scrPos=pos.clone()
 			scrPos.x+=(scrPos.x<0?tr.size:-tr.size);
@@ -192,4 +192,17 @@ requestAnimationFrame( function animate() {
 	}
 	//letter.position.add(vec3(Math.random()-.5,Math.random()-.5,Math.random()-.5).multiplyScalar(1))
 	renderer.render( scene, camera );
+});
+
+'mousedown mousemove touchstart touchmove'.split(' ').forEach(eType=>{
+	addEventListener(eType, e=>{
+		var touches=e.changedTouches||[e];
+		for (var i = 0; i < touches.length; i++) {
+			let pointer=new THREE.Vector2(
+				(touches[i].clientX-canvas._pos.left) / W  * 2 - 1,
+				-(touches[i].clientY-canvas._pos.top) / H  * 2 + 1
+			)
+			//touches[i]
+		}
+	})
 })
