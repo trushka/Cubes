@@ -1,7 +1,8 @@
-var density=.22, pSise=175, bevel=.8 ,Cu=.15,
+var density=.22, bevel=.8 ,Cu=.15,
+	pSise=175, deviation=.1,
 	bumpMap='bump.jpg',
 	force=.1, parallax=1000,
-	color='#aa9', CuColor='#c83', expandColor=1.1,
+	color='#aa9', CuColor='#c83', expandColor=1.2,
 	scroll0=scrollY, ds=0,
 	raycaster=new THREE.Raycaster(), touched,
 
@@ -137,7 +138,7 @@ function init(w0) {
 		return pos.clone().unproject(camera);
 	}
 	for (var i = 0, geom, pos=vec3(), sizeI, cube, x, dw=(W-w0)/W; i < bCount-l; i++) {
-		sizeI=size*rnd(.2, 1);
+		sizeI=size*rnd(deviation, 1);
 		geom=cubeGeometry(sizeI, bevel);
 		cube=new THREE.Mesh(geom, i>CuCount?material:CuMaterial);
 		cubes.add(cube);
