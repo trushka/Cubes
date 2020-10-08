@@ -1,8 +1,8 @@
 var density=.22, bevel=.8 ,Cu=.15,
-	pSise=175, deviation=.1,
+	pSise=185, deviation=.1,
 	bumpMap='bump.jpg',
-	force=.1, parallax=1000,
-	color='#aa9', CuColor='#c83', expandColor=1.2,
+	force=.1, parallax=1300,
+	color='#886', CuColor='#f70', expandColor=2,
 	scroll0=scrollY, ds=0,
 	raycaster=new THREE.Raycaster(), touched,
 
@@ -30,7 +30,7 @@ renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, canvas: canvas})
 //renderer.shadowMap.enabled = true;
 
 
-camera = new THREE.PerspectiveCamera( 18, aspect, 5000, 15000 );
+camera = new THREE.PerspectiveCamera( 18, aspect, 5000, 10000 );
 //camera.position.z=1000
 scene = new THREE.Scene();
 cubes = new THREE.Group();
@@ -160,7 +160,7 @@ function init(w0) {
 
 requestAnimationFrame( function animate() {
 	requestAnimationFrame( animate );
-	var delta=clock.getDelta();
+	var delta=clock.getDelta(.1, 0.01);
 	if (!delta) return;
 	const q0=new THREE.Quaternion();
 	var pos=canvas._pos=canvas.getBoundingClientRect(), resize;
