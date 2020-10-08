@@ -1,9 +1,11 @@
-var density=.22, pSise=175, bevel=.6 ,Cu=.15,
+var density=.22, pSise=175, bevel=.8 ,Cu=.15,
 	bumpMap='bump.jpg',
 	force=.1, parallax=1000,
-	color='#eed', CuColor='#fa5',
-	scroll0=scrollY, ds=0, camera, scene, cubes, renderer, light, pos0, size,
-	raycaster=new THREE.Raycaster(), particles, 
+	color='#aa9', CuColor='#c83', expandColor=1.1,
+	scroll0=scrollY, ds=0,
+	raycaster=new THREE.Raycaster(), touched,
+
+	camera, scene, cubes, renderer, light, pos0, size, particles, 
 	vec3=function(x,y,z){return new THREE.Vector3(x||0, y||0, z||0)}, lookAt=vec3(0,0,0), PI=Math.PI;
 
 THREE.Clock.prototype.getDelta=function(max, min){
@@ -32,34 +34,45 @@ camera = new THREE.PerspectiveCamera( 18, aspect, 5000, 15000 );
 scene = new THREE.Scene();
 cubes = new THREE.Group();
 particles=cubes.children;
-lightH=new THREE.HemisphereLight('#cdd', 0, 20)
+lightH=new THREE.HemisphereLight('#ddd', 0, 9)
 scene.add(lightH,  cubes);
-lightH.position.set(0,.8,1);
+lightH.position.set(0,1.6,1);
+lightH=new THREE.HemisphereLight('#cdd', 0, 9.8)
+scene.add(lightH);
+lightH.position.set(1,1.6,.2);
+lightH=new THREE.HemisphereLight('#ddc', 0, 9.5)
+scene.add(lightH);
+lightH.position.set(-1,1.6,.2);
 
 new THREE.IcosahedronGeometry(1,1).vertices.forEach((v, i)=>{
 	//console.log(v);
-	if (v.z<-.6) return;
-	var light=new THREE.DirectionalLight('#fff', (v.y+.75)/120);
-	if (v.y<.06 && v.z<.04 && Math.random()>.5) light.intensity*=-1;
-	light.position.copy(v);
+	if (v.y<-.2) return;
+	var light=new THREE.DirectionalLight('#aa9', .011);
+	if (v.y<.3 && v.z<.25 && (Math.random()>.5 || v.z<.1)) light.intensity*=-.2;
+	v.z+=.3; v.y-=.2;
+	light.color.r+=rnd(.2);
+	light.color.g+=rnd(.2);
+	light.color.b+=rnd(.23);
+	light.position.copy(v.normalize());
 	light.castShadow = false//(v.z>0&&v.y>.5);
 	scene.add(light);
 })
 
 bTexture=new THREE.TextureLoader().load(bumpMap);
 var material = new THREE.MeshStandardMaterial({
-	flatShading:true,
-	metalness: .979,
-	roughness: .2,
+	//flatShading: true,
+	metalness: .974,
+	roughness: .25,
 	color: color,
 	//bumpMap: bTexture,
 	roughnessMap: bTexture,
 	aoMap: bTexture,
-	aoMapIntensity: .7,
+	aoMapIntensity: 1.6,
 	//bumpScale: .01
 }),
 	CuMaterial=material.clone();//, opacity: 0
-CuMaterial.color.set(CuColor);
+material.color.multiplyScalar(expandColor);
+CuMaterial.color.set(CuColor).multiplyScalar(expandColor);
 bTexture.repeat.set(.003, .003);
 bTexture.offset.set(1.5, 1.5);
 bTexture.wrapS = bTexture.wrapT = THREE.MirroredRepeatWrapping;
@@ -136,7 +149,8 @@ function init(w0) {
 		cube.bTrans={
 			dq: new THREE.Quaternion(),
 			dp: vec3(),
-			size: sizeI
+			size: sizeI,
+			size2: sizeI*sizeI/2
 		}
 	}
 	console.log(minS/scrSize/scrSize);
@@ -147,6 +161,7 @@ requestAnimationFrame( function animate() {
 	requestAnimationFrame( animate );
 	var delta=clock.getDelta();
 	if (!delta) return;
+	const q0=new THREE.Quaternion();
 	var pos=canvas._pos=canvas.getBoundingClientRect(), resize;
 	if (pos.bottom<=0 || pos.top>=window.innerHeight) return;
 	if (W!=pos.width || H!==pos.height) {
@@ -170,11 +185,10 @@ requestAnimationFrame( function animate() {
 	if (1) {
 		// background random movement
 		for (var i = 0, scrPos, pos, tr; i < particles.length; i++) {
-			tr=particles[i].bTrans; pos=particles[i].position;
+			tr=particles[i].bTrans;
+			pos=particles[i].position;
 			pos.y+=dY;
-			tr.dq._x+=rnd(.0001,-.00005); tr.dq._y+=rnd(.0001,-.00005); tr.dq._z+=rnd(.0001,-.00005);
-			tr.dq.slerp(new THREE.Quaternion(), .05);
-			particles[i].applyQuaternion(tr.dq.normalize());
+
 			scrPos=pos.clone()
 			scrPos.x+=(scrPos.x<0?tr.size:-tr.size);
 			scrPos.y+=(scrPos.y<0?tr.size:-tr.size);
@@ -188,21 +202,38 @@ requestAnimationFrame( function animate() {
 			if (scrPos.z<-1) tr.dp.z-=force;
 			if (scrPos.z>1) tr.dp.z+=force;
 			pos.add(tr.dp.add(vec3(rnd(.01,-.005), rnd(.01,-.005), rnd(.01,-.005))).multiplyScalar(.995));
+
+			let active=(touched && raycaster.ray.distanceSqToPoint(pos)<tr.size2)
+
+			if (active) {
+				if (!tr.dq1){
+					let fi=tr.dq.angleTo(q0);
+					tr.dq1=new THREE.Quaternion().slerp(tr.dq, .025/fi);
+				}
+				tr.dq.slerp(tr.dq1, .1);
+			} else {
+				delete tr.dq1;
+				let dq=.0001, dq2=-.00005;
+				tr.dq._x+=rnd(dq, dq2); tr.dq._y+=rnd(dq, dq2); tr.dq._z+=rnd(dq, dq2); tr.dq._w+=rnd(dq, dq2);
+				tr.dq.slerp(q0, .05);
+			}
+			particles[i].applyQuaternion(tr.dq.normalize());
 		}
 	}
-	//letter.position.add(vec3(Math.random()-.5,Math.random()-.5,Math.random()-.5).multiplyScalar(1))
 	renderer.render( scene, camera );
+	//document.body.style.background=touched?'#0a6':''
 });
 
 'mousedown mousemove touchstart touchmove'.split(' ').forEach(eType=>{
 	addEventListener(eType, e=>{
 		var touches=e.changedTouches||[e];
-		for (var i = 0; i < touches.length; i++) {
-			let pointer=new THREE.Vector2(
-				(touches[i].clientX-canvas._pos.left) / W  * 2 - 1,
-				-(touches[i].clientY-canvas._pos.top) / H  * 2 + 1
-			)
-			//touches[i]
-		}
+		raycaster.setFromCamera( new THREE.Vector2(
+			(touches[0].clientX-canvas._pos.left) / W  * 2 - 1,
+			-(touches[0].clientY-canvas._pos.top) / H  * 2 + 1
+		), camera);
+		touched=true
 	})
+})
+'mouseup touchend touchcancel blur mouseleave'.split(' ').forEach(eType=>{
+	document.addEventListener(eType, e=>{ touched=false })
 })
