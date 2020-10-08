@@ -165,7 +165,7 @@ requestAnimationFrame( function animate() {
 	const q0=new THREE.Quaternion();
 	var pos=canvas._pos=canvas.getBoundingClientRect(), resize;
 	if (pos.bottom<=0 || pos.top>=window.innerHeight) return;
-	if (W!=pos.width || H!==pos.height) {
+	if (W!==pos.width || H!==pos.height) {
 		let w0=W;
 		W=pos.width;
 		H=pos.height;
