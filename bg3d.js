@@ -1,9 +1,9 @@
-var density=.22, bevel=.8 ,Cu=.15,
+var density=.22, bevel=.8 ,Cu=.22,
 	pSise=185, deviation=.1,
 	bumpMap='bump.jpg',
 	force=.1, parallax=1300,
 	color='#886', CuColor='#f70', expandColor=2,
-	scroll0=scrollY, ds=0,
+	scroll0=scrollY, ds=0, CuCount=0,
 	raycaster=new THREE.Raycaster(), touched,
 
 	camera, scene, cubes, renderer, light, pos0, size, particles, 
@@ -22,7 +22,7 @@ THREE.Euler.prototype.multiplyScalar=THREE.Vector3.prototype.multiplyScalar;
 function rnd(a,b) {return Math.random()*(a||1)+(b||0)};
 
 var clock = new THREE.Clock();
-var canvas=document.querySelector('#renderer'),
+var canvas=document.querySelector('.renderer'),
 	W, H, aspect=1, vMin, dpr=1, bCount, bR=500, bdR=50, PI=Math.PI;
 var bgObj, bGeometry=new THREE.BufferGeometry(), bVerts=[], bTrans=[], bRR=bR*bR, bRR2=(bR+bdR)*(bR+bdR);
 
@@ -107,9 +107,9 @@ function cubeGeometry( size, bevel ) {
 
 function init(w0) {
 	var l=particles.length,
-		size0=size, positions=[],
-		scrSize=pSise/H/2, size2=scrSize*scrSize*6, minS=size2,
-		bCount=Math.round(W*H/10000*density);
+		size0=size, positions=[], scrScale=Math.min(1, Math.sqrt(W/H)),
+		scrSize=pSise/H/2*scrScale, size2=scrSize*scrSize*6, minS=size2,
+		bCount=Math.round(W*H/10000/scrScale/scrScale*density);
 	size=vec3(0, scrSize, 0).unproject(camera).y;
 	var scale=size/size0;
 	if (l) {
@@ -117,6 +117,7 @@ function init(w0) {
 			let cube=particles[i],
 				pos=cube.position.multiply(vec3(scale, scale,1)).clone().project(camera);
 			if (Math.abs(pos.x)+scrSize>1 || Math.abs(pos.y)>1){
+				if (cube.material==CuMaterial) CuCount--;
 				cubes.remove(cube);
 				i--; l--;
 			} else {
@@ -126,7 +127,6 @@ function init(w0) {
 			}
 		}
 	}
-	var CuCount=Math.round((bCount-l)*Cu);
 	//console.log(W,w0)
 	function setPos(dist) {
 		var x=rnd(2)-1, y=rnd(2)-1, pos;
@@ -140,8 +140,11 @@ function init(w0) {
 	for (var i = 0, geom, pos=vec3(), sizeI, cube, x, dw=(W-w0)/W; i < bCount-l; i++) {
 		sizeI=size*rnd(deviation, 1);
 		geom=cubeGeometry(sizeI, bevel);
-		cube=new THREE.Mesh(geom, i>CuCount?material:CuMaterial);
+
+		let isCu=(CuCount<Math.round(bCount*Cu));
+		cube=new THREE.Mesh(geom, isCu?CuMaterial:material);
 		cubes.add(cube);
+		if (isCu) CuCount++;
 		//cube.castShadow=cube.receiveShadow=true;
 		cube.position.copy(setPos(size2));
 
@@ -164,42 +167,39 @@ requestAnimationFrame( function animate() {
 	if (!delta) return;
 	const q0=new THREE.Quaternion();
 	var pos=canvas._pos=canvas.getBoundingClientRect(), resize;
-	if (pos.bottom<=0 || pos.top>=window.innerHeight) return;
+	//if (pos.bottom<=0 || pos.top>=window.innerHeight) return;
 	if (W!==pos.width || H!==pos.height) {
 		let w0=W;
 		W=pos.width;
 		H=pos.height;
 		vMin=Math.min(W,H);
-		renderer.setSize(W, H);
+		renderer.setSize(W, H, false);
 		camera.aspect=W/H;
 		camera.updateProjectionMatrix();
-		resize=1;
-		init(W>w0?w0:0);
+		init();
 	}
 	if (dpr!=(dpr=window.devicePixelRatio) ) {
 		renderer.setPixelRatio( dpr );
-		resize=1;
 	}
-	if (resize) canvas.style.cssText='';
-	var dY=(scrollY-scroll0)*parallax/H;
+	var dY=(scrollY-scroll0)%H*parallax/H;
 	scroll0=scrollY;
 	if (1) {
 		// background random movement
-		for (var i = 0, scrPos, pos, tr; i < particles.length; i++) {
+		for (var i = 0, scrPos, pos, posY, tr; i < particles.length; i++) {
 			tr=particles[i].bTrans;
 			pos=particles[i].position;
 			pos.y+=dY;
 
-			scrPos=pos.clone()
+			scrPos=pos.clone();
 			scrPos.x+=(scrPos.x<0?tr.size:-tr.size);
-			scrPos.y+=(scrPos.y<0?tr.size:-tr.size);
+			posY=scrPos.y+=(scrPos.y<0?tr.size:-tr.size);
 			scrPos.z+=(scrPos.z<0?tr.size:-tr.size);
 			scrPos.project(camera);
 			scrPos.x=(scrPos.x+1)/2;
 
 			if (scrPos.x<0 && tr.dp.x<tr.size*3) tr.dp.x+=force;
 			if (scrPos.x>1 && -tr.dp.x<tr.size*3) tr.dp.x-=force;
-			if (scrPos.y<-1 || scrPos.y>1) pos.y*=-1;
+			if (scrPos.y<-1 || scrPos.y>1) pos.y=-Math.sign(pos.y)*(posY/scrPos.y+tr.size);
 			if (scrPos.z<-1) tr.dp.z-=force;
 			if (scrPos.z>1) tr.dp.z+=force;
 			pos.add(tr.dp.add(vec3(rnd(.01,-.005), rnd(.01,-.005), rnd(.01,-.005))).multiplyScalar(.995));

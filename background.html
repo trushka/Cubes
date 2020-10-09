@@ -12,25 +12,30 @@
 				margin: 0px;
 				/* height: 500%; */
 			}
-			#renderer {
+			.renderer {
 				position:fixed;
 				left: 0;
 				top:0;
 				width: 100%;
 				height: 100vh;
 				margin: 0;
+				overflow: hidden;
 			}
 			body:after {
-				content: url(Home.svg);
+				content: url(Main.svg);
 				margin: auto;
 				display: block;
 				max-width: 100%;
 				position: relative;
 			}
+			@media screen and (min-width: 450px) {
+				body:after {
+					content: url(Home.svg);
+				}
 		</style>
 	</head>
 	<body>
-		<canvas id="renderer"></canvas>
+		<canvas class="renderer"></canvas>
 		<script src="three.min.js"></script>
 		<script src="bg3d.js"></script>
 	</body>
