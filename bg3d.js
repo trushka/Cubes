@@ -1,7 +1,8 @@
 var density=.22, bevel=.8 ,Cu=.22,
 	pSise=185, deviation=.1,
 	bumpMap='bump.jpg',
-	force=.1, parallax=1300,
+	force=.1, parallax=1100,
+	fogColor='#171717', //page background color
 	color='#886', CuColor='#f70', expandColor=2,
 	scroll0=scrollY, ds=0, CuCount=0,
 	raycaster=new THREE.Raycaster(), touched,
@@ -31,8 +32,10 @@ renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, canvas: canvas})
 
 
 camera = new THREE.PerspectiveCamera( 18, aspect, 5000, 10000 );
-//camera.position.z=1000
 scene = new THREE.Scene();
+
+scene.fog=new THREE.Fog(fogColor, camera.near, camera.far*1.1)
+
 cubes = new THREE.Group();
 particles=cubes.children;
 lightH=new THREE.HemisphereLight('#ddd', 0, 9)
@@ -65,11 +68,11 @@ var material = new THREE.MeshStandardMaterial({
 	metalness: .974,
 	roughness: .25,
 	color: color,
-	//bumpMap: bTexture,
+	bumpMap: bTexture,
 	roughnessMap: bTexture,
 	aoMap: bTexture,
 	aoMapIntensity: 1.6,
-	//bumpScale: .01
+	bumpScale: .01
 }),
 	CuMaterial=material.clone();//, opacity: 0
 material.color.multiplyScalar(expandColor);
@@ -236,5 +239,5 @@ requestAnimationFrame( function animate() {
 	})
 })
 'mouseup touchend touchcancel blur mouseleave'.split(' ').forEach(eType=>{
-	document.addEventListener(eType, e=>{ touched=false })
+	addEventListener(eType, e=>{ touched=false })
 })
