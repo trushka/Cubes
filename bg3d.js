@@ -1,13 +1,18 @@
 var density=.22, bevel=.8 ,Cu=.22,
-	pSise=185, deviation=.1,
+	pSise=185, deviation=.65,
+
+	count=480, countAround=20,
+	big=320, small=110, figSise=620,
+
 	bumpMap='bump.jpg',
-	force=.1, parallax=1100,
+	force=.005, parallax=1100,
 	fogColor='#171717', //page background color
 	color='#886', CuColor='#f70', expandColor=2,
 	scroll0=scrollY, ds=0, CuCount=0,
 	raycaster=new THREE.Raycaster(), touched,
 
-	camera, scene, cubes, renderer, light, pos0, size, particles, 
+	camera, scene, renderer, light, pos0, size,
+	cubes, particles, figure, around, main,
 	vec3=function(x,y,z){return new THREE.Vector3(x||0, y||0, z||0)}, lookAt=vec3(0,0,0), PI=Math.PI;
 
 THREE.Clock.prototype.getDelta=function(max, min){
@@ -32,6 +37,9 @@ renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, canvas: canvas})
 
 
 camera = new THREE.PerspectiveCamera( 18, aspect, 5000, 10000 );
+camera.position.z=-7500;
+camera.lookAt(0,0,0);
+camera.updateMatrixWorld();
 scene = new THREE.Scene();
 
 scene.fog=new THREE.Fog(fogColor, camera.near, camera.far*1.1)
@@ -64,7 +72,7 @@ new THREE.IcosahedronGeometry(1,1).vertices.forEach((v, i)=>{
 
 bTexture=new THREE.TextureLoader().load(bumpMap);
 var material = new THREE.MeshStandardMaterial({
-	//flatShading: true,
+	flatShading: true,
 	metalness: .974,
 	roughness: .25,
 	color: color,
@@ -109,6 +117,7 @@ function cubeGeometry( size, bevel ) {
 }
 
 function init(w0) {
+	if (!window.showBgAnimation) return;
 	var l=particles.length,
 		size0=size, positions=[], scrScale=Math.min(1, Math.sqrt(W/H)),
 		scrSize=pSise/H/2*scrScale, size2=scrSize*scrSize*6, minS=size2,
@@ -118,14 +127,16 @@ function init(w0) {
 	if (l) {
 		for (var i = 0; i < l; i++) {
 			let cube=particles[i],
-				pos=cube.position.multiply(vec3(scale, scale,1)).clone().project(camera);
+				pos=cube.position.multiply(vec3(scale, scale,1)).clone();
+			cubes.localToWorld(pos).project(camera);
+
 			if (Math.abs(pos.x)+scrSize>1 || Math.abs(pos.y)>1){
 				if (cube.material==CuMaterial) CuCount--;
 				cubes.remove(cube);
 				i--; l--;
 			} else {
 				cube.scale.multiplyScalar(scale);
-				cube.bTrans.size*=size/size0;
+				cube.tr.size*=size/size0;
 				positions.push(pos)
 			}
 		}
@@ -138,10 +149,10 @@ function init(w0) {
 
 		minS=Math.min(minS, dist);
 		positions.push(pos=vec3(x, y, rnd(1.8)-.9));
-		return pos.clone().unproject(camera);
+		return cubes.worldToLocal(pos.unproject(camera)).clone();
 	}
 	for (var i = 0, geom, pos=vec3(), sizeI, cube, x, dw=(W-w0)/W; i < bCount-l; i++) {
-		sizeI=size*rnd(deviation, 1);
+		sizeI=size;//*rnd(deviation, 1);
 		geom=cubeGeometry(sizeI, bevel);
 
 		let isCu=(CuCount<Math.round(bCount*Cu));
@@ -153,7 +164,7 @@ function init(w0) {
 
 		cube.rotation.set(rnd(PI), rnd(PI), rnd(PI));
 		//particles[i].frustumCulled=false;
-		cube.bTrans={
+		cube.tr={
 			dq: new THREE.Quaternion(),
 			dp: vec3(),
 			size: sizeI,
@@ -163,7 +174,48 @@ function init(w0) {
 	console.log(minS/scrSize/scrSize);
 	//particles.length=bCount;
 };
+function initMain(){
+	scene.add(main=new THREE.Group());
+	main.add(
+		figure=new THREE.Group(),
+		around=new THREE.Group()
+	).tr={
+			dq: new THREE.Quaternion(),
+			dp: vec3(),
+			size: figSise,
+			size2: figSise*figSise/2
+		};
+	cubes.add(main);
+	function setPos(n, size){
+		if (!n) return false;
+		var pos=vec3(rnd(2)-1, rnd(2)-1, rnd(2)-1).multiplyScalar(figSise/2);
+		if (figure.children.some(el=>el.position.distanceTo(pos)<(size+el.tr.size)*.42))
+			return setPos(n-1, size)
+		else return pos;
+	}
+	for (var i = 0; i < count; i++) {
+		sizeI=i<4?big:small*rnd(deviation, 1);
+		var pos=i<4?vec3().fromArray([[1,1,1],[-1,-1,1],[1,-1,-1],[-1,1,-1]][i]).multiplyScalar(figSise/2):setPos(5000,sizeI);
+		if (!pos) {console.log(i); break};
 
+		geom=cubeGeometry(sizeI, bevel);
+
+		let isCu=(i<4 || CuCount<Math.round(i*Cu));
+		cube=new THREE.Mesh(geom, isCu?CuMaterial:material);
+		figure.add(cube);
+		cube.position.copy(pos);
+		if (i>3) cube.rotation.set(rnd(PI), rnd(PI), rnd(PI));
+		if (isCu) CuCount++;
+
+		cube.tr={
+			dq: new THREE.Quaternion(),
+			dp: vec3(),
+			size: sizeI,
+			size2: sizeI*sizeI/2
+		}
+	}
+}
+if (window.showMainAnimation) initMain();
 requestAnimationFrame( function animate() {
 	requestAnimationFrame( animate );
 	var delta=clock.getDelta(.1, 0.01);
@@ -186,28 +238,35 @@ requestAnimationFrame( function animate() {
 	}
 	var dY=(scrollY-scroll0)%H*parallax/H;
 	scroll0=scrollY;
+	//scene.rotateY(.0005);
 	if (1) {
 		// background random movement
-		for (var i = 0, scrPos, pos, posY, tr; i < particles.length; i++) {
-			tr=particles[i].bTrans;
-			pos=particles[i].position;
+		let scrPos, pos, posY, tr, ray, active;
+		let dq=.0001, dq2=-.00005;
+		for (var i = 0; i < particles.length; i++) {
+			tr=particles[i].tr;
+			pos=cubes.localToWorld(particles[i].position);
 			pos.y+=dY;
 
 			scrPos=pos.clone();
-			scrPos.x+=(scrPos.x<0?tr.size:-tr.size);
+			//scrPos.x-=(scrPos.x<0?tr.size:-tr.size);
 			posY=scrPos.y+=(scrPos.y<0?tr.size:-tr.size);
-			scrPos.z+=(scrPos.z<0?tr.size:-tr.size);
+			scrPos.z-=(scrPos.z<0?tr.size:-tr.size);
 			scrPos.project(camera);
 			scrPos.x=(scrPos.x+1)/2;
 
-			if (scrPos.x<0 && tr.dp.x<tr.size*3) tr.dp.x+=force;
-			if (scrPos.x>1 && -tr.dp.x<tr.size*3) tr.dp.x-=force;
+			F=vec3();
+			if (scrPos.x<-1 ) F.x=-force;
+			if (scrPos.x>1 ) F.x=force;
 			if (scrPos.y<-1 || scrPos.y>1) pos.y=-Math.sign(pos.y)*(posY/scrPos.y+tr.size);
-			if (scrPos.z<-1) tr.dp.z-=force;
-			if (scrPos.z>1) tr.dp.z+=force;
+			if (scrPos.z<-1) F.z=.1;
+			if (scrPos.z>1) F.z=-.1;
+			tr.dp.add(cubes.worldToLocal(F));
+			cubes.worldToLocal(pos);
 			pos.add(tr.dp.add(vec3(rnd(.01,-.005), rnd(.01,-.005), rnd(.01,-.005))).multiplyScalar(.995));
 
-			let active=(touched && raycaster.ray.distanceSqToPoint(pos)<tr.size2)
+			ray=raycaster.ray.clone().applyMatrix4(new THREE.Matrix4().getInverse( cubes.matrixWorld ));
+			active=(touched && ray.distanceSqToPoint(pos)<tr.size2);
 
 			if (active) {
 				if (!tr.dq1){
@@ -217,7 +276,6 @@ requestAnimationFrame( function animate() {
 				tr.dq.slerp(tr.dq1, .1);
 			} else {
 				delete tr.dq1;
-				let dq=.0001, dq2=-.00005;
 				tr.dq._x+=rnd(dq, dq2); tr.dq._y+=rnd(dq, dq2); tr.dq._z+=rnd(dq, dq2); tr.dq._w+=rnd(dq, dq2);
 				tr.dq.slerp(q0, .05);
 			}
@@ -239,5 +297,5 @@ requestAnimationFrame( function animate() {
 	})
 })
 'mouseup touchend touchcancel blur mouseleave'.split(' ').forEach(eType=>{
-	addEventListener(eType, e=>{ touched=false })
+	document.addEventListener(eType, e=>{ touched=false })
 })
