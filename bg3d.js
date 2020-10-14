@@ -2,7 +2,7 @@ var density=.22, bevel=.8 ,Cu=.22,
 	pSise=185, deviation=.65,
 
 	count=480, countAround=20,
-	big=320, small=110, figSise=620,
+	big=320, small=110, figSize=610,
 
 	bumpMap='bump.jpg',
 	force=.005, parallax=1100,
@@ -13,6 +13,7 @@ var density=.22, bevel=.8 ,Cu=.22,
 
 	camera, scene, renderer, light, pos0, size,
 	cubes, particles, figure, around, main,
+	q0=new THREE.Quaternion(),
 	vec3=function(x,y,z){return new THREE.Vector3(x||0, y||0, z||0)}, lookAt=vec3(0,0,0), PI=Math.PI;
 
 THREE.Clock.prototype.getDelta=function(max, min){
@@ -42,7 +43,7 @@ camera.lookAt(0,0,0);
 camera.updateMatrixWorld();
 scene = new THREE.Scene();
 
-scene.fog=new THREE.Fog(fogColor, camera.near, camera.far*1.1)
+scene.fog=new THREE.Fog(fogColor, camera.near, camera.far)
 
 cubes = new THREE.Group();
 particles=cubes.children;
@@ -175,27 +176,30 @@ function init(w0) {
 	//particles.length=bCount;
 };
 function initMain(){
+	scene.fog.near=camera.position.length()-figSize;
 	scene.add(main=new THREE.Group());
 	main.add(
 		figure=new THREE.Group(),
 		around=new THREE.Group()
 	).tr={
+			axis: vec3(0,1,0),
+			axisW: vec3(0,0,1).normalize(),
 			dq: new THREE.Quaternion(),
 			dp: vec3(),
-			size: figSise,
-			size2: figSise*figSise/2
+			size: figSize,
+			size2: figSize*figSize/2
 		};
-	cubes.add(main);
+	//cubes.add(main);
 	function setPos(n, size){
 		if (!n) return false;
-		var pos=vec3(rnd(2)-1, rnd(2)-1, rnd(2)-1).multiplyScalar(figSise/2);
-		if (figure.children.some(el=>el.position.distanceTo(pos)<(size+el.tr.size)*.42))
+		var pos=vec3(rnd(2)-1, rnd(2)-1, rnd(2)-1).multiplyScalar(figSize/2);
+		if (figure.children.some(el=>el.tr.pos.distanceTo(pos)<(size+el.tr.size)*.42))
 			return setPos(n-1, size)
 		else return pos;
 	}
 	for (var i = 0; i < count; i++) {
 		sizeI=i<4?big:small*rnd(deviation, 1);
-		var pos=i<4?vec3().fromArray([[1,1,1],[-1,-1,1],[1,-1,-1],[-1,1,-1]][i]).multiplyScalar(figSise/2):setPos(5000,sizeI);
+		var pos=i<4?vec3().fromArray([[1,1,1],[-1,-1,1],[1,-1,-1],[-1,1,-1]][i]).multiplyScalar(figSize/2):setPos(5000,sizeI);
 		if (!pos) {console.log(i); break};
 
 		geom=cubeGeometry(sizeI, bevel);
@@ -203,19 +207,24 @@ function initMain(){
 		let isCu=(i<4 || CuCount<Math.round(i*Cu));
 		cube=new THREE.Mesh(geom, isCu?CuMaterial:material);
 		figure.add(cube);
-		cube.position.copy(pos);
-		if (i>3) cube.rotation.set(rnd(PI), rnd(PI), rnd(PI));
-		if (isCu) CuCount++;
+		cube.position.copy(pos).multiplyScalar(50);
+		cube.rotation.set(rnd(PI), rnd(PI), rnd(PI));
+		if (i<4) cube.rotation.multiplyScalar(.05);
+		//console.log(cube.quaternion);
 
 		cube.tr={
+			pos: pos,
+			lerp: i>3?(figSize*1.5-pos.length())/figSize:1.1,
 			dq: new THREE.Quaternion(),
 			dp: vec3(),
 			size: sizeI,
 			size2: sizeI*sizeI/2
 		}
+		if (isCu) CuCount++;
 	}
 }
 if (window.showMainAnimation) initMain();
+
 requestAnimationFrame( function animate() {
 	requestAnimationFrame( animate );
 	var delta=clock.getDelta(.1, 0.01);
@@ -282,20 +291,42 @@ requestAnimationFrame( function animate() {
 			particles[i].applyQuaternion(tr.dq.normalize());
 		}
 	}
+	dPos+=(2-dPos)*delta/2;
+	var dRo=dPos*dPos*dPos*dPos*delta*.09*roV;
+	ro+=dRo;
+	roV=1-Math.pow(ro/2/Math.PI, 7);
+	if (window.showMainAnimation) {
+		figure.children.forEach(function(el, i){
+			el.position.lerp(el.tr.pos, delta*(dPos+2)*el.tr.lerp);
+		});
+		main.rotateOnAxis(main.tr.axis, -delta*2*(roV+.05));
+		main.rotateOnWorldAxis(main.tr.axisW, dRo);
+		//main.matrix.makeRotationFromQuaternion(main.quaternion);
+		main.tr.dq.slerp(quMouse.slerp(q0, delta*1), delta*30);
+		main.applyQuaternion((main.tr.dq).slerp(q0, roV));
+	}
 	renderer.render( scene, camera );
 	//document.body.style.background=touched?'#0a6':''
 });
+var dPos=0, roV=1, ro=0, mouse0=vec3(),
+	quMouse=new THREE.Quaternion();
 
 'mousedown mousemove touchstart touchmove'.split(' ').forEach(eType=>{
 	addEventListener(eType, e=>{
 		var touches=e.changedTouches||[e];
-		raycaster.setFromCamera( new THREE.Vector2(
-			(touches[0].clientX-canvas._pos.left) / W  * 2 - 1,
-			-(touches[0].clientY-canvas._pos.top) / H  * 2 + 1
-		), camera);
+		var x=(touches[0].clientX-canvas._pos.left) / W  * 2 - 1,
+			y=-(touches[0].clientY-canvas._pos.top) / H  * 2 + 1,
+			z=-1;
+		raycaster.setFromCamera( new THREE.Vector2(x,y), camera);
+		var mouse=vec3(x,y,z).unproject(camera).normalize();
+		if (touched) {
+			quMouse.setFromUnitVectors(mouse0, mouse)
+			 .slerp(q0, -3).slerp(main.tr.dq, .85);
+		}
+		mouse0=mouse;
 		touched=true
 	})
 })
 'mouseup touchend touchcancel blur mouseleave'.split(' ').forEach(eType=>{
-	document.addEventListener(eType, e=>{ touched=false })
+	document.addEventListener(eType, e=>{ console.log(touched=false) })
 })
