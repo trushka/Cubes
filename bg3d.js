@@ -42,6 +42,7 @@ camera.position.z=-7500;
 camera.lookAt(0,0,0);
 camera.updateMatrixWorld();
 scene = new THREE.Scene();
+scene.add(camera);
 
 scene.fog=new THREE.Fog(fogColor, camera.near, camera.far)
 
@@ -57,23 +58,58 @@ lightH=new THREE.HemisphereLight('#ddc', 0, 9.5)
 scene.add(lightH);
 lightH.position.set(-1,1.6,.2);
 
-new THREE.IcosahedronGeometry(1,1).vertices.forEach((v, i)=>{
+var lights=new THREE.IcosahedronGeometry(1,8);
+lights.vertices.forEach((v, i)=>{
 	//console.log(v);
-	if (v.y<-.2) return;
-	var light=new THREE.DirectionalLight('#aa9', .011);
-	if (v.y<.3 && v.z<.25 && (Math.random()>.5 || v.z<.1)) light.intensity*=-.2;
-	v.z+=.3; v.y-=.2;
-	light.color.r+=rnd(.2);
-	light.color.g+=rnd(.2);
-	light.color.b+=rnd(.23);
-	light.position.copy(v.normalize());
-	light.castShadow = false//(v.z>0&&v.y>.5);
-	scene.add(light);
+	//if (v.y<-.2) return;
+	var color=new THREE.Color('#ddc');
+	color.r+=rnd(.2);
+	color.g+=rnd(.2);
+	color.b+=rnd(.23);
+	if (Math.random()>.2) color.multiplyScalar(v.y*.2+.2);
+	lights.colors.push(color)
 })
+lights.faces.forEach((f, i)=>{
+	f.vertexColors=[lights.colors[f.a],
+	 lights.colors[f.b], lights.colors[f.c]]
+})
+// new THREE.TextureLoader()//EXRLoader()forest.exr
+//  //.setDataType( THREE.UnsignedByteType )
+//  //.setPath( 'textures/equirectangular/' )
+//  .load( 'env0.jpg', function ( texture ) {
+
+// 	var envMap = pmremGenerator.fromEquirectangular( texture ).texture;
+
+// 	scene.environment = envMap;
+
+// 	texture.dispose();
+// 	pmremGenerator.dispose();
+// })
+
+var scene2=new THREE.Scene().add(
+	new THREE.Mesh(lights, new THREE.MeshBasicMaterial({
+		vertexColors: true,
+		wireframe: true,
+		side: THREE.BackSide
+	}))
+)
+scene2.background=new THREE.Color('#666');
+renderer._render=renderer.render;
+renderer.render=function(s,c){
+	console.log('rr');
+	renderer._render(s,c);
+	renderer.gammaFactor=.5;
+	renderer.outputEncoding=THREE.GammaEncoding;
+}
+var pmremGenerator = new THREE.PMREMGenerator( renderer );
+//pmremGenerator.compileEquirectangularShader();
+scene.environment =scene.background= pmremGenerator.fromScene(scene2, .016).texture;
+pmremGenerator.dispose();
+	renderer.render=renderer._render;
 
 bTexture=new THREE.TextureLoader().load(bumpMap);
 var material = new THREE.MeshStandardMaterial({
-	flatShading: true,
+	//flatShading: true,
 	metalness: .974,
 	roughness: .25,
 	color: color,
@@ -81,6 +117,7 @@ var material = new THREE.MeshStandardMaterial({
 	roughnessMap: bTexture,
 	aoMap: bTexture,
 	aoMapIntensity: 1.6,
+	envMapIntensity: 8.5,//.25,
 	bumpScale: .01
 }),
 	CuMaterial=material.clone();//, opacity: 0
@@ -228,7 +265,7 @@ if (window.showMainAnimation) initMain();
 requestAnimationFrame( function animate() {
 	requestAnimationFrame( animate );
 	var delta=clock.getDelta(.1, 0.01);
-	if (!delta) return;
+	if (!delta || document.readyState!='complete' || !scene.environment) return;
 	const q0=new THREE.Quaternion();
 	var pos=canvas._pos=canvas.getBoundingClientRect(), resize;
 	//if (pos.bottom<=0 || pos.top>=window.innerHeight) return;
@@ -299,11 +336,12 @@ requestAnimationFrame( function animate() {
 		figure.children.forEach(function(el, i){
 			el.position.lerp(el.tr.pos, delta*(dPos+2)*el.tr.lerp);
 		});
-		main.rotateOnAxis(main.tr.axis, -delta*2*(roV+.05));
+		main.rotateOnAxis(main.tr.axis, -delta*2*(roV+.00));
 		main.rotateOnWorldAxis(main.tr.axisW, dRo);
 		//main.matrix.makeRotationFromQuaternion(main.quaternion);
 		main.tr.dq.slerp(quMouse.slerp(q0, delta*1), delta*30);
-		main.applyQuaternion((main.tr.dq).slerp(q0, roV));
+		main.applyQuaternion((main.tr.dq).slerp(q0, roV).normalize());
+		//scene.quaternion.copy(main.quaternion);
 	}
 	renderer.render( scene, camera );
 	//document.body.style.background=touched?'#0a6':''
@@ -319,7 +357,7 @@ var dPos=0, roV=1, ro=0, mouse0=vec3(),
 			z=-1;
 		raycaster.setFromCamera( new THREE.Vector2(x,y), camera);
 		var mouse=vec3(x,y,z).unproject(camera).normalize();
-		if (touched) {
+		if (touched&&main) {
 			quMouse.setFromUnitVectors(mouse0, mouse)
 			 .slerp(q0, -3).slerp(main.tr.dq, .85);
 		}
