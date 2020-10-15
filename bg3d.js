@@ -40,7 +40,6 @@ renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, canvas: canvas})
 camera = new THREE.PerspectiveCamera( 18, aspect, 5000, 10000 );
 camera.position.z=-7500;
 camera.lookAt(0,0,0);
-camera.updateMatrixWorld();
 scene = new THREE.Scene();
 scene.add(camera);
 
@@ -51,7 +50,7 @@ scene.fog=new THREE.Fog(fogColor, camera.near, camera.far)
 
 cubes = new THREE.Group();
 particles=cubes.children;
-lightH=new THREE.HemisphereLight('#ddd', 0, 7.5)
+lightH=new THREE.HemisphereLight('#eec', 0, 7.5)
 scene.add(lightH,  cubes);
 lightH.position.set(0,1.6,1);
 lightH=new THREE.HemisphereLight('#cdd', 0, 7.8)
@@ -64,6 +63,7 @@ lightE=new THREE.AmbientLight('#fff', -1)
 scene.add(lightE);
 
 scene.rotation.y=-1
+scene.updateMatrixWorld();
 
 new THREE.IcosahedronGeometry(1,1).vertices.forEach((v, i)=>{
 	//console.log(v);
@@ -145,17 +145,19 @@ function init(w0) {
 	if (!window.showBgAnimation) return;
 	var l=particles.length,
 		size0=size, positions=[], scrScale=Math.min(1, Math.sqrt(W/H)),
-		scrSize=pSise/H/2*scrScale, size2=scrSize*scrSize*6, minS=size2,
+		scrSize=pSise/H/2*scrScale, minS=size2,
+		scrSizeX=scrSize*H/W,
 		bCount=Math.round(W*H/10000/scrScale/scrScale*density);
 	size=vec3(0, scrSize, 0).unproject(camera).y;
-	var scale=size/size0;
+	var scale=size/size0, size2=size*size*70;
 	if (l) {
 		for (var i = 0; i < l; i++) {
 			let cube=particles[i],
-				pos=cube.position.multiply(vec3(scale, scale,1)).clone();
-			cubes.localToWorld(pos).project(camera);
+				pos=cube.position.multiplyScalar(scale).clone(),//,
+				pos1=cubes.localToWorld(pos).clone().project(camera);
 
-			if (Math.abs(pos.x)+scrSize>1 || Math.abs(pos.y)>1){
+			if (Math.abs(pos1.x)+scrSize/2>1 ||
+				Math.abs(pos1.z)+scrSize/2>1 || Math.abs(pos1.y)>1){
 				if (cube.material==CuMaterial) CuCount--;
 				cubes.remove(cube);
 				i--; l--;
@@ -168,13 +170,14 @@ function init(w0) {
 	}
 	//console.log(W,w0)
 	function setPos(dist) {
-		var x=rnd(2)-1, y=rnd(2)-1, pos;
+		var pos=vec3(rnd(2,-1)*(1- scrSizeX),
+		 rnd(2,-1)*(1- scrSizeX), rnd(1.8)-.9).unproject(camera);
 
-		if (positions.some(p=>(x-p.x)*(x-p.x)+(y-p.y)*(y-p.y)<dist)) return setPos(dist*.9999);
+		if (positions.some(p=>p.distanceToSquared(pos)<dist)) return setPos(dist*.9999);
 
 		minS=Math.min(minS, dist);
-		positions.push(pos=vec3(x, y, rnd(1.8)-.9));
-		return cubes.worldToLocal(pos.unproject(camera)).clone();
+		positions.push(pos);
+		return cubes.worldToLocal(pos.clone());
 	}
 	for (var i = 0, geom, pos=vec3(), sizeI, cube, x, dw=(W-w0)/W; i < bCount-l; i++) {
 		sizeI=size;//*rnd(deviation, 1);
@@ -196,7 +199,7 @@ function init(w0) {
 			size2: sizeI*sizeI/2
 		}
 	}
-	console.log(minS/scrSize/scrSize);
+	console.log(scrSize);
 	//particles.length=bCount;
 };
 function initMain(){
