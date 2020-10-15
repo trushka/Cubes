@@ -7,7 +7,7 @@ var density=.22, bevel=.8 ,Cu=.22,
 	bumpMap='bump.jpg',
 	force=.005, parallax=1100,
 	fogColor='#171717', //page background color
-	color='#886', CuColor='#f70', expandColor=2,
+	color='#775', CuColor='#f70', expandColor=2,
 	scroll0=scrollY, ds=0, CuCount=0,
 	raycaster=new THREE.Raycaster(), touched,
 
@@ -44,81 +44,68 @@ camera.updateMatrixWorld();
 scene = new THREE.Scene();
 scene.add(camera);
 
+renderer.gammaFactor=1.3
+renderer.outputEncoding=THREE.GammaEncoding
+
 scene.fog=new THREE.Fog(fogColor, camera.near, camera.far)
 
 cubes = new THREE.Group();
 particles=cubes.children;
-lightH=new THREE.HemisphereLight('#ddd', 0, 9)
+lightH=new THREE.HemisphereLight('#ddd', 0, 7.5)
 scene.add(lightH,  cubes);
 lightH.position.set(0,1.6,1);
-lightH=new THREE.HemisphereLight('#cdd', 0, 9.8)
-scene.add(lightH);
+lightH=new THREE.HemisphereLight('#cdd', 0, 7.8)
+//scene.add(lightH);
 lightH.position.set(1,1.6,.2);
-lightH=new THREE.HemisphereLight('#ddc', 0, 9.5)
-scene.add(lightH);
+lightH=new THREE.HemisphereLight('#ddc', 0, 7.5)
+//scene.add(lightH);
 lightH.position.set(-1,1.6,.2);
+lightE=new THREE.AmbientLight('#fff', -1)
+scene.add(lightE);
 
-var lights=new THREE.IcosahedronGeometry(1,8);
-lights.vertices.forEach((v, i)=>{
+scene.rotation.y=-1
+
+new THREE.IcosahedronGeometry(1,1).vertices.forEach((v, i)=>{
 	//console.log(v);
-	//if (v.y<-.2) return;
-	var color=new THREE.Color('#ddc');
-	color.r+=rnd(.2);
-	color.g+=rnd(.2);
-	color.b+=rnd(.23);
-	if (Math.random()>.2) color.multiplyScalar(v.y*.2+.2);
-	lights.colors.push(color)
+	if (v.y<-.2) return;
+	var light=new THREE.DirectionalLight('#aa9', .011);
+	if (v.y<.3 && v.z<.25 && (Math.random()>.5 || v.z<.1)) light.intensity*=-.2;
+	v.z+=.3; v.y-=.2;
+	light.color.r+=rnd(.2);
+	light.color.g+=rnd(.2);
+	light.color.b+=rnd(.23);
+	light.position.copy(v.normalize());
+	light.castShadow = false//(v.z>0&&v.y>.5);
+	//scene.add(light);
 })
-lights.faces.forEach((f, i)=>{
-	f.vertexColors=[lights.colors[f.a],
-	 lights.colors[f.b], lights.colors[f.c]]
+new THREE.EXRLoader()
+ .setDataType( THREE.UnsignedByteType )
+ //.setPath( 'textures/equirectangular/' )
+ .load( 'city.exr', function ( texture ) {
+
+	var envMap = pmremGenerator.fromEquirectangular( texture ).texture;
+
+	scene.environment = envMap;
+
+	texture.dispose();
+	pmremGenerator.dispose();
 })
-// new THREE.TextureLoader()//EXRLoader()forest.exr
-//  //.setDataType( THREE.UnsignedByteType )
-//  //.setPath( 'textures/equirectangular/' )
-//  .load( 'env0.jpg', function ( texture ) {
 
-// 	var envMap = pmremGenerator.fromEquirectangular( texture ).texture;
-
-// 	scene.environment = envMap;
-
-// 	texture.dispose();
-// 	pmremGenerator.dispose();
-// })
-
-var scene2=new THREE.Scene().add(
-	new THREE.Mesh(lights, new THREE.MeshBasicMaterial({
-		vertexColors: true,
-		wireframe: true,
-		side: THREE.BackSide
-	}))
-)
-scene2.background=new THREE.Color('#666');
-renderer._render=renderer.render;
-renderer.render=function(s,c){
-	console.log('rr');
-	renderer._render(s,c);
-	renderer.gammaFactor=.5;
-	renderer.outputEncoding=THREE.GammaEncoding;
-}
 var pmremGenerator = new THREE.PMREMGenerator( renderer );
-//pmremGenerator.compileEquirectangularShader();
-scene.environment =scene.background= pmremGenerator.fromScene(scene2, .016).texture;
-pmremGenerator.dispose();
-	renderer.render=renderer._render;
+pmremGenerator.compileEquirectangularShader();
 
 bTexture=new THREE.TextureLoader().load(bumpMap);
 var material = new THREE.MeshStandardMaterial({
 	//flatShading: true,
-	metalness: .974,
-	roughness: .25,
+	metalness: .975,
+	roughness: .2,
 	color: color,
 	bumpMap: bTexture,
 	roughnessMap: bTexture,
 	aoMap: bTexture,
 	aoMapIntensity: 1.6,
-	envMapIntensity: 8.5,//.25,
-	bumpScale: .01
+	envMapIntensity: .35,
+	bumpScale: .1
 }),
 	CuMaterial=material.clone();//, opacity: 0
 material.color.multiplyScalar(expandColor);
@@ -341,7 +328,6 @@ requestAnimationFrame( function animate() {
 		//main.matrix.makeRotationFromQuaternion(main.quaternion);
 		main.tr.dq.slerp(quMouse.slerp(q0, delta*1), delta*30);
 		main.applyQuaternion((main.tr.dq).slerp(q0, roV).normalize());
-		//scene.quaternion.copy(main.quaternion);
 	}
 	renderer.render( scene, camera );
 	//document.body.style.background=touched?'#0a6':''
@@ -357,7 +343,8 @@ var dPos=0, roV=1, ro=0, mouse0=vec3(),
 			z=-1;
 		raycaster.setFromCamera( new THREE.Vector2(x,y), camera);
 		var mouse=vec3(x,y,z).unproject(camera).normalize();
-		if (touched&&main) {
+		scene.worldToLocal(mouse);
+		if (touched && main) {
 			quMouse.setFromUnitVectors(mouse0, mouse)
 			 .slerp(q0, -3).slerp(main.tr.dq, .85);
 		}
