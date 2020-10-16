@@ -1,8 +1,8 @@
 var density=.22, bevel=.8 ,Cu=.22,
-	pSise=185, deviation=.65,
+	pSise=185, deviation=.7,
 
 	count=480, countAround=20,
-	big=320, small=110, figSize=610,
+	big=340*1.1, small=135*1.1, figSize=610*1.1,
 
 	bumpMap='bump.jpg',
 	force=.005, parallax=1100,
@@ -97,25 +97,33 @@ new THREE.EXRLoader()
 var pmremGenerator = new THREE.PMREMGenerator( renderer );
 pmremGenerator.compileEquirectangularShader();
 
-bTexture=new THREE.TextureLoader().load(bumpMap);
+var bTexture=new THREE.TextureLoader().load('metall3.jpg');
+//var mTexture=new THREE.TextureLoader().load('metall2.jpg');
+bTexture.wrapS = bTexture.wrapT = THREE.RepeatWrapping;
+//mTexture.wrapT = mTexture.wrapS = 
+bTexture.offset.set(1.4, 1.5);
+bTexture.repeat.set(.0008, .0008);
+//mTexture.repeat.set(.1, .1);
+
 var material = new THREE.MeshStandardMaterial({
 	//flatShading: true,
-	metalness: .975,
-	roughness: .2,
+	metalness: .998,
+	roughness: .34,
 	color: color,
 	bumpMap: bTexture,
 	roughnessMap: bTexture,
-	aoMap: bTexture,
+	metalnessMap: bTexture,
+	//map: bTexture,
+	//aoMap: bTexture,
 	aoMapIntensity: 1.6,
-	envMapIntensity: .35,
-	bumpScale: .1
+	envMapIntensity: .272,
+	bumpScale: -.2
 }),
 	CuMaterial=material.clone();//, opacity: 0
-material.color.multiplyScalar(expandColor);
+material.color.multiplyScalar(expandColor).multiplyScalar(1.11);
+
 CuMaterial.color.set(CuColor).multiplyScalar(expandColor);
-bTexture.repeat.set(.003, .003);
-bTexture.offset.set(1.5, 1.5);
-bTexture.wrapS = bTexture.wrapT = THREE.MirroredRepeatWrapping;
+CuMaterial.envMapIntensity=.3; 
 
 function cubeGeometry( size, bevel ) {
   var x=size/2;
@@ -225,8 +233,8 @@ function initMain(){
 	//cubes.add(main);
 	function setPos(n, size){
 		if (!n) return false;
-		var pos=vec3(rnd(2)-1, rnd(2)-1, rnd(2)-1).multiplyScalar(figSize/2);
-		if (figure.children.some(el=>el.tr.pos.distanceTo(pos)<(size+el.tr.size)*.42))
+		var pos=vec3(rnd(2)-1, rnd(2)-1, rnd(2)-1).multiplyScalar((small+figSize)/2);
+		if (figure.children.some(el=>el.tr.pos.distanceTo(pos)<(size+el.tr.size)*.5))
 			return setPos(n-1, size)
 		else return pos;
 	}
@@ -250,6 +258,7 @@ function initMain(){
 			pos: pos,
 			lerp: i>3?(figSize*1.4-pos.length())*1.1/figSize:1.1,
 			dq: new THREE.Quaternion(),
+			q: cube.quaternion.clone(),
 			dp: vec3(),
 			size: sizeI,
 			size2: sizeI*sizeI/2
@@ -259,17 +268,14 @@ function initMain(){
 
 	function setOrbitPos(n){
 		if (!n) return false;
-		var pos=vec3(figSize*1.45, 0, 0).add(
-			vec3(rnd(figSize)*.6, 0, 0).rotate(0, 0, rnd(PI*2))
-		)
-		if (pos.x<figSize*1.1) return setOrbitPos(n-1);
-		pos.rotate(0, rnd(PI*2), 0);
-		if (around.children.some(el=>el.tr.pos.distanceTo(pos)<figSize*.85)){
+		var pos=vec3(figSize*(1.56+rnd(1.8)), 0, 0)
+		 .rotate(0, 0, rnd(PI)).rotate(rnd(PI*2), 0, 0);
+		if (around.children.some(el=>el.tr.pos.distanceTo(pos)<figSize*1.6)){
 			return setOrbitPos(n-1)
 		} else return pos;
 	}
 	for (var i = 0, CuCount=0; i < count; i++) {
-		sizeI=small*rnd(deviation, 1)*.8;
+		sizeI=small*rnd(deviation, 1)*.7;
 		let pos=setOrbitPos(5000);
 		if (!pos) {console.log(i); break};
 		//console.log(pos);
@@ -311,6 +317,7 @@ requestAnimationFrame( function animate() {
 		vMin=Math.min(W,H);
 		renderer.setSize(W, H, false);
 		camera.aspect=W/H;
+		camera.zoom=Math.min(1, W/H);
 		camera.updateProjectionMatrix();
 		init();
 	}
@@ -373,10 +380,9 @@ requestAnimationFrame( function animate() {
 			el.position.lerp(el.tr.pos, delta*(dPos+2)*el.tr.lerp);
 			if (el.parent==around) {
 				el.applyQuaternion(q0.clone().slerp(el.tr.dq, delta))
-			} else {
-				// if (!el.tr.big)el.rotateY(Math.min(
-				// 	10, el.position.distanceToSquared(el.tr.pos)
-				// )*delta)
+			} else if (el.tr.q) {
+				 //el.quaternion.copy(el.tr.q)
+				 //.slerp(q0, el.tr.pos.distanceTo(el.position)*.01)
 			}
 		});
 		around.rotateOnAxis(main.tr.axis, -delta*2.2*.05);

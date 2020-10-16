@@ -21,6 +21,17 @@
 				margin: 0;
 				overflow: hidden;
 			}
+			body:after {
+				content: url(Main.svg);
+				margin: 100vh auto 0;
+				display: block;
+				max-width: 100%;
+				position: relative;
+			}
+			@media screen and (min-width: 450px) {
+				body:after {
+					content: url(Home.svg);
+				}
 		</style>
 		<script type="text/javascript">
 			var showMainAnimation=true;
