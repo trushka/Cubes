@@ -7,7 +7,7 @@ var density=.22, bevel=.8 ,Cu=.22,
 	bumpMap='bump.jpg',
 	force=.005, parallax=1100,
 	fogColor='#171717', //page background color
-	color='#775', CuColor='#f70', expandColor=2,
+	color='#885', CuColor='#f70', expandColor=2,
 	scroll0=scrollY, ds=0, CuCount=0,
 	raycaster=new THREE.Raycaster(), touched,
 
@@ -16,6 +16,9 @@ var density=.22, bevel=.8 ,Cu=.22,
 	q0=new THREE.Quaternion(),
 	vec3=function(x,y,z){return new THREE.Vector3(x||0, y||0, z||0)}, lookAt=vec3(0,0,0), PI=Math.PI;
 
+THREE.Vector3.prototype.rotate=function(x,y,z,t){
+	return this.applyEuler(new THREE.Euler(x,y,z,t))
+}
 THREE.Clock.prototype.getDelta=function(max, min){
 	var old=this._elapsedTime, now=(window.performance||Date).now()/1000,
 		d=Math.min(now-old, isNaN(max)? this.maxDelta||.1 :max);
@@ -208,14 +211,17 @@ function initMain(){
 	main.add(
 		figure=new THREE.Group(),
 		around=new THREE.Group()
-	).tr={
-			axis: vec3(0,1,0),
-			axisW: vec3(0,0,1).normalize(),
-			dq: new THREE.Quaternion(),
-			dp: vec3(),
-			size: figSize,
-			size2: figSize*figSize/2
-		};
+	).rotateZ(-.2).rotateY(-PI/4)
+	 .tr={
+		axis: vec3(0,1,0),
+		axisW: vec3(0,0,1).normalize(),
+		dq: new THREE.Quaternion(),
+		dp: vec3(),
+		size: figSize,
+		size2: figSize*figSize/2,
+		q: q0.clone().set(
+			-0.09590164747088724, 0.5444665507147546, -0.5453308531376693, 0.6300581796797367)
+	};
 	//cubes.add(main);
 	function setPos(n, size){
 		if (!n) return false;
@@ -226,13 +232,13 @@ function initMain(){
 	}
 	for (var i = 0; i < count; i++) {
 		sizeI=i<4?big:small*rnd(deviation, 1);
-		var pos=i<4?vec3().fromArray([[1,1,1],[-1,-1,1],[1,-1,-1],[-1,1,-1]][i]).multiplyScalar(figSize/2):setPos(5000,sizeI);
+		let pos=i<4?vec3().fromArray([[1,1,1],[-1,-1,1],[1,-1,-1],[-1,1,-1]][i]).multiplyScalar(figSize/2):setPos(5000,sizeI);
 		if (!pos) {console.log(i); break};
 
-		geom=cubeGeometry(sizeI, bevel);
+		let geom=cubeGeometry(sizeI, bevel);
 
 		let isCu=(i<4 || CuCount<Math.round(i*Cu));
-		cube=new THREE.Mesh(geom, isCu?CuMaterial:material);
+		let cube=new THREE.Mesh(geom, isCu?CuMaterial:material);
 		figure.add(cube);
 		cube.position.copy(pos).multiplyScalar(50);
 		cube.rotation.set(rnd(PI), rnd(PI), rnd(PI));
@@ -240,9 +246,48 @@ function initMain(){
 		//console.log(cube.quaternion);
 
 		cube.tr={
+			big: i<4,
 			pos: pos,
-			lerp: i>3?(figSize*1.5-pos.length())/figSize:1.1,
+			lerp: i>3?(figSize*1.4-pos.length())*1.1/figSize:1.1,
 			dq: new THREE.Quaternion(),
+			dp: vec3(),
+			size: sizeI,
+			size2: sizeI*sizeI/2
+		}
+		if (isCu) CuCount++;
+	}
+
+	function setOrbitPos(n){
+		if (!n) return false;
+		var pos=vec3(figSize*1.45, 0, 0).add(
+			vec3(rnd(figSize)*.6, 0, 0).rotate(0, 0, rnd(PI*2))
+		)
+		if (pos.x<figSize*1.1) return setOrbitPos(n-1);
+		pos.rotate(0, rnd(PI*2), 0);
+		if (around.children.some(el=>el.tr.pos.distanceTo(pos)<figSize*.85)){
+			return setOrbitPos(n-1)
+		} else return pos;
+	}
+	for (var i = 0, CuCount=0; i < count; i++) {
+		sizeI=small*rnd(deviation, 1)*.8;
+		let pos=setOrbitPos(5000);
+		if (!pos) {console.log(i); break};
+		//console.log(pos);
+
+		let geom=cubeGeometry(sizeI, bevel);
+
+		let isCu=(CuCount<Math.round(i*Cu));
+		let cube=new THREE.Mesh(geom, isCu?CuMaterial:material);
+		around.add(cube);
+		cube.position.copy(pos).multiplyScalar(15).y*=15;
+		cube.rotation.set(rnd(PI), rnd(PI), rnd(PI));
+		//console.log(cube.quaternion);
+
+		cube.tr={
+			pos: pos,
+			lerp: rnd(.2)+.5,
+			dq: q0.clone().setFromEuler(
+				new THREE.Euler(rnd()-.5, rnd()-.5, rnd()-.5).multiplyScalar(0.7)),
 			dp: vec3(),
 			size: sizeI,
 			size2: sizeI*sizeI/2
@@ -321,16 +366,25 @@ requestAnimationFrame( function animate() {
 	dPos+=(2-dPos)*delta/2;
 	var dRo=dPos*dPos*dPos*dPos*delta*.09*roV;
 	ro+=dRo;
-	roV=1-Math.pow(ro/2/Math.PI, 7);
+	roV=1-Math.pow(ro/1.81/PI, 3);
 	if (window.showMainAnimation) {
-		figure.children.forEach(function(el, i){
+		main.traverse(function(el){
+			if (!el.isMesh) return;
 			el.position.lerp(el.tr.pos, delta*(dPos+2)*el.tr.lerp);
+			if (el.parent==around) {
+				el.applyQuaternion(q0.clone().slerp(el.tr.dq, delta))
+			} else {
+				// if (!el.tr.big)el.rotateY(Math.min(
+				// 	10, el.position.distanceToSquared(el.tr.pos)
+				// )*delta)
+			}
 		});
-		main.rotateOnAxis(main.tr.axis, -delta*2*(roV+.00));
+		around.rotateOnAxis(main.tr.axis, -delta*2.2*.05);
+		main.rotateOnAxis(main.tr.axis, -delta*2.2*(roV));
 		main.rotateOnWorldAxis(main.tr.axisW, dRo);
-		//main.matrix.makeRotationFromQuaternion(main.quaternion);
 		main.tr.dq.slerp(quMouse.slerp(q0, delta*1), delta*30);
 		main.applyQuaternion((main.tr.dq).slerp(q0, roV).normalize());
+		main.quaternion.slerp(main.tr.q, delta*.1)
 	}
 	renderer.render( scene, camera );
 	//document.body.style.background=touched?'#0a6':''
