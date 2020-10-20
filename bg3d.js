@@ -1,8 +1,8 @@
-var density=.22, bevel=1 ,Cu=.22,
+var density=.22, bevel=1 ,Cu=.17,
 	pSise=185, deviation=.7,
 
 	count=480, countAround=20,
-	big=340*1.1, small=135*1.1,
+	big=340*1.2, small=135*1.21,
 	figSize=600*1.1,
 
 	bumpMap='bump.jpg',
@@ -240,23 +240,26 @@ function initMain(){
 	function setPos(n, size){
 		if (!n) return false;
 		var pos=vec3(rnd(2)-1, rnd(2)-1, rnd(2)-1).multiplyScalar((small*.6+figSize)/2);
-		if (figure.children.some(el=>el.tr.pos.distanceTo(pos)<(size+el.tr.size)*.5))
+		if (figure.children.some(el=>el.tr.pos.distanceTo(pos)<(size+el.tr.size)*.42))
 			return setPos(n-1, size*=.99994)
 		else return pos;
 	}
 	for (var i = 0, CuCount=0; i < count; i++) {
 		sizeI=i<4?big:small*rnd(deviation, 1);
-		let pos=i<4?vec3().fromArray([[1,1,1],[-1,-1,1],[1,-1,-1],[-1,1,-1]][i]).multiplyScalar(figSize/2):setPos(5000,sizeI);
+		let pos;
+		if (i<4) pos=vec3().fromArray([[1,1,1],[-1,-1,1],[1,-1,-1],[-1,1,-1]][i]).multiplyScalar(figSize/2)
+		else if (i<8) pos=vec3().fromArray([[1,1,-1],[-1,-1,-1],[1,-1,1],[-1,1,1]][i-4]).multiplyScalar((figSize-small+big)*.43)
+		else pos=setPos(5000,sizeI);
 		if (!pos) {console.log(i); break};
 
 		let geom=cubeGeometry(sizeI, bevel);
 
-		let isCu=(i<4 || CuCount<Math.round(i*Cu));
+		let isCu=(i<4 || (i<8 && rnd()>.5) || CuCount<Math.round(i*Cu));
 		let cube=new THREE.Mesh(geom, isCu?CuMaterial:material);
 		figure.add(cube);
 		cube.position.copy(pos).multiplyScalar(100);
-		cube.rotation.set(rnd(PI), rnd(PI), rnd(PI));
-		if (i<4) cube.rotation.multiplyScalar(.05);
+		cube.rotation.set(rnd(.5)-.25, rnd(.5)-.25, rnd(.5)-.25);
+		cube.rotation.multiplyScalar(i<4?.3:1.25);
 		//console.log(isCu, CuCount);
 
 		cube.tr={
@@ -274,14 +277,14 @@ function initMain(){
 
 	function setOrbitPos(n){
 		if (!n) return false;
-		var pos=vec3(figSize*(1.63+rnd(1.8)), 0, 0)
+		var pos=vec3(Math.min(figSize*(1.63+rnd(2.1)), -camera.position.z-camera.near-small*1.5), 0, 0)
 		 .rotate(0, 0, rnd(PI)).rotate(rnd(PI*2), 0, 0);
 		if (around.children.some(el=>el.tr.pos.distanceTo(pos)<figSize*1.6)){
 			return setOrbitPos(n-1)
 		} else return pos;
 	}
 	for (var i = 0, CuCount=0; i < count; i++) {
-		sizeI=small*rnd(deviation, 1)*.7;
+		sizeI=small*rnd(deviation, 1)*.6;
 		let pos=setOrbitPos(5000);
 		if (!pos) {console.log(i); break};
 		//console.log(pos);
@@ -292,8 +295,7 @@ function initMain(){
 		let cube=new THREE.Mesh(geom, isCu?CuMaterial:material);
 		around.add(cube);
 		cube.position.copy(pos).multiplyScalar(10);//.y*=15;
-		cube.rotation.set(rnd(PI), rnd(PI), rnd(PI));
-		//console.log(cube.quaternion);
+		cube.rotation.set(rnd(PI), rnd(PI), rnd(PI))		//console.log(cube.quaternion);
 
 		cube.tr={
 			pos: pos,
@@ -395,13 +397,13 @@ requestAnimationFrame( function animate() {
 		around.rotateOnAxis(main.tr.axis, -delta*(roV));
 		figure.rotateOnWorldAxis(main.tr.axisW, dRo);
 		around.rotateOnWorldAxis(main.tr.axisW, dRo);
-		
-		main.tr.dq.slerp(quMouse.slerp(q0, delta*1), delta*30);
+
+		main.tr.dq.slerp(quMouse.slerp(q0, delta*6), delta*10);
 		figure.applyQuaternion((main.tr.dq).slerp(q0, roV).normalize());
 		figure.quaternion.slerp(main.tr.q, delta*.1)
-		around.applyQuaternion(around.tr.dq.slerp(main.tr.dq, delta*10).slerp(q0, .6));
+		around.applyQuaternion(around.tr.dq.slerp(main.tr.dq, delta*3).slerp(q0, .3));
 		//(around.tr.dq).slerp(q0, roV).normalize());
-		around.rotateOnWorldAxis(around.tr.axisW, -delta*2.2*.05);
+		around.rotateOnWorldAxis(around.tr.axisW, -delta*.034);
 	}
 	renderer.render( scene, camera );
 	//document.body.style.background=touched?'#0a6':''
