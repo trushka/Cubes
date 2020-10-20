@@ -216,7 +216,7 @@ function init(w0) {
 	//particles.length=bCount;
 };
 function initMain(){
-	//scene.fog.near=camera.position.length()-figSize*2;
+	scene.fog.near=camera.position.length()-figSize;
 	scene.add(main=new THREE.Group());
 	main.add(
 		figure=new THREE.Group().rotateZ(-.2).rotateY(-PI/4),
@@ -279,7 +279,7 @@ function initMain(){
 		if (!n) return false;
 		var pos=vec3(Math.min(figSize*(1.63+rnd(2.1)), -camera.position.z-camera.near-small*1.5), 0, 0)
 		 .rotate(0, 0, rnd(PI)).rotate(rnd(PI*2), 0, 0);
-		if (around.children.some(el=>el.tr.pos.distanceTo(pos)<figSize*1.6)){
+		if (around.children.some(el=>el.tr.pos.distanceTo(pos)<figSize*1.9)){
 			return setOrbitPos(n-1)
 		} else return pos;
 	}
