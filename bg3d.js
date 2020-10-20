@@ -224,16 +224,16 @@ function initMain(){
 	)
 	 .tr={
 		axis: vec3(0,1,0),
-		axisW: vec3(0,0,1).normalize(),
+		axisW: vec3(.6,-.1,1).normalize(),
 		dq: new THREE.Quaternion(),
 		dp: vec3(),
 		size: figSize,
 		size2: figSize*figSize/2,
 		q: q0.clone().setFromEuler(
-			new THREE.Euler(PI/4, PI/4, -PI/2))
+			new THREE.Euler(PI/5, PI/4, -PI/2))
 	};
 	around.tr={
-		axisW: vec3(0,1,0).rotate(PI/7, PI/4),
+		axisW: vec3(0,1,0).rotate(-PI/6, PI/4),
 		dq: new THREE.Quaternion()
 	}
 	//cubes.add(main);
@@ -265,7 +265,7 @@ function initMain(){
 		cube.tr={
 			big: i<4,
 			pos: pos,
-			lerp: i>3?(figSize*1.4-pos.length())*.6/figSize:.6,
+			lerp: i>3?(figSize*1.4-pos.length())*.56/figSize:.56,
 			dq: new THREE.Quaternion(),
 			q: cube.quaternion.clone(),
 			dp: vec3(),
@@ -378,11 +378,11 @@ requestAnimationFrame( function animate() {
 			particles[i].applyQuaternion(tr.dq.normalize());
 		}
 	}
-	var delta2=delta*.5
+	var delta2=delta*.55
 	dPos+=(2-dPos)*delta2/2;
 	var dRo=dPos*dPos*dPos*delta2*.2*roV;
 	ro+=dRo;
-	roV=1-Math.pow(ro/1.32/PI, 5);
+	roV=1-Math.pow(ro/1.3/PI, 5);
 	if (window.showMainAnimation) {
 		main.traverse(function(el){
 			if (!el.isMesh) return;
@@ -394,10 +394,10 @@ requestAnimationFrame( function animate() {
 				 //.slerp(q0, el.tr.pos.distanceTo(el.position)*.01)
 			}
 		});
-		figure.rotateOnAxis(main.tr.axis, -delta2*3.35*(roV));
-		around.rotateOnAxis(main.tr.axis, -delta2*roV)*.7;
+		figure.rotateOnAxis(main.tr.axis, -delta2*3.34*(roV));
+		around.rotateOnAxis(main.tr.axis, -delta2*roV*roV*.7);
 		figure.rotateOnWorldAxis(main.tr.axisW, dRo);
-		around.rotateOnWorldAxis(main.tr.axisW, dRo*.6);
+		around.rotateOnWorldAxis(main.tr.axisW, dRo*.9);
 
 		main.tr.dq.slerp(quMouse.slerp(q0, delta*6), delta*10);
 		figure.applyQuaternion((main.tr.dq).slerp(q0, roV).normalize());
@@ -409,7 +409,7 @@ requestAnimationFrame( function animate() {
 	renderer.render( scene, camera );
 	//document.body.style.background=touched?'#0a6':''
 });
-var dPos=0, roV=1, ro=-1.28, mouse0=vec3(),
+var dPos=0, roV=1, ro=-1.3, mouse0=vec3(),
 	quMouse=new THREE.Quaternion();
 
 'mousedown mousemove touchstart touchmove'.split(' ').forEach(eType=>{
