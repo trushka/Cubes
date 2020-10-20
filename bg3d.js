@@ -47,7 +47,7 @@ camera.lookAt(0,0,0);
 scene = new THREE.Scene();
 scene.add(camera);
 
-renderer.gammaFactor=1.3
+renderer.gammaFactor=1.6
 renderer.outputEncoding=THREE.GammaEncoding
 
 scene.fog=new THREE.Fog(fogColor, camera.near, camera.far)
@@ -229,8 +229,8 @@ function initMain(){
 		dp: vec3(),
 		size: figSize,
 		size2: figSize*figSize/2,
-		q: q0.clone().set(
-			-0.09590164747088724, 0.5444665507147546, -0.5453308531376693, 0.6300581796797367)
+		q: q0.clone().setFromEuler(
+			new THREE.Euler(PI/4, PI/4, -PI/2))
 	};
 	around.tr={
 		axisW: vec3(0,1,0).rotate(PI/7, PI/4),
@@ -265,7 +265,7 @@ function initMain(){
 		cube.tr={
 			big: i<4,
 			pos: pos,
-			lerp: i>3?(figSize*1.4-pos.length())*.7/figSize:.7,
+			lerp: i>3?(figSize*1.4-pos.length())*.6/figSize:.6,
 			dq: new THREE.Quaternion(),
 			q: cube.quaternion.clone(),
 			dp: vec3(),
@@ -378,10 +378,11 @@ requestAnimationFrame( function animate() {
 			particles[i].applyQuaternion(tr.dq.normalize());
 		}
 	}
-	dPos+=(2-dPos)*delta/2;
-	var dRo=dPos*dPos*dPos*dPos*delta*.09*roV;
+	var delta2=delta*.5
+	dPos+=(2-dPos)*delta2/2;
+	var dRo=dPos*dPos*dPos*delta2*.2*roV;
 	ro+=dRo;
-	roV=1-Math.pow(ro/1.81/PI, 3);
+	roV=1-Math.pow(ro/1.32/PI, 5);
 	if (window.showMainAnimation) {
 		main.traverse(function(el){
 			if (!el.isMesh) return;
@@ -393,14 +394,14 @@ requestAnimationFrame( function animate() {
 				 //.slerp(q0, el.tr.pos.distanceTo(el.position)*.01)
 			}
 		});
-		figure.rotateOnAxis(main.tr.axis, -delta*2.2*(roV));
-		around.rotateOnAxis(main.tr.axis, -delta*(roV));
+		figure.rotateOnAxis(main.tr.axis, -delta2*3.35*(roV));
+		around.rotateOnAxis(main.tr.axis, -delta2*roV)*.7;
 		figure.rotateOnWorldAxis(main.tr.axisW, dRo);
-		around.rotateOnWorldAxis(main.tr.axisW, dRo);
+		around.rotateOnWorldAxis(main.tr.axisW, dRo*.6);
 
 		main.tr.dq.slerp(quMouse.slerp(q0, delta*6), delta*10);
 		figure.applyQuaternion((main.tr.dq).slerp(q0, roV).normalize());
-		figure.quaternion.slerp(main.tr.q, delta*.1)
+		figure.quaternion.slerp(main.tr.q, delta*.1*(1-roV*roV*roV))
 		around.applyQuaternion(around.tr.dq.slerp(main.tr.dq, delta*3).slerp(q0, .3));
 		//(around.tr.dq).slerp(q0, roV).normalize());
 		around.rotateOnWorldAxis(around.tr.axisW, -delta*.034);
@@ -408,7 +409,7 @@ requestAnimationFrame( function animate() {
 	renderer.render( scene, camera );
 	//document.body.style.background=touched?'#0a6':''
 });
-var dPos=0, roV=1, ro=0, mouse0=vec3(),
+var dPos=0, roV=1, ro=-1.28, mouse0=vec3(),
 	quMouse=new THREE.Quaternion();
 
 'mousedown mousemove touchstart touchmove'.split(' ').forEach(eType=>{
