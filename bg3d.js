@@ -216,7 +216,7 @@ function init(w0) {
 	//particles.length=bCount;
 };
 function initMain(){
-	scene.fog.near=camera.position.length()-figSize;
+	scene.fog.near=camera.position.length()-figSize*6;
 	scene.add(main=new THREE.Group());
 	main.add(
 		figure=new THREE.Group().rotateZ(-.2).rotateY(-PI/4),
