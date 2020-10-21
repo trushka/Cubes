@@ -224,7 +224,7 @@ function initMain(){
 	)
 	 .tr={
 		axis: vec3(0,1,0),
-		axisW: vec3(.6,-.1,1).normalize(),
+		axisW: vec3(.7,-.1,1).normalize(),
 		dq: new THREE.Quaternion(),
 		dp: vec3(),
 		size: figSize,
@@ -238,16 +238,16 @@ function initMain(){
 	}
 	//cubes.add(main);
 	for (var i = 0, CuCount=0; i < count; i++) {
-		let sizeI=i<4?big:i<4?small*rnd(deviation, 1):small*(.8+deviation);
+		let sizeI=i<4?big:i<4?small*rnd(deviation, 1):small*(.9+deviation);
 		let pos;
 		if (i<4) pos=vec3().fromArray([[1,1,1],[-1,-1,1],[1,-1,-1],[-1,1,-1]][i]).multiplyScalar(figSize/2)
 		else if (i<8) pos=vec3().fromArray([[1,1,-1],[-1,-1,-1],[1,-1,1],[-1,1,1]][i-4]).multiplyScalar((figSize-small+big)*.43)
-		else for (var n=0; n<8000; n++) {
+		else for (var n=0; n<18000; n++) {
 			pos=vec3(rnd(2)-1, rnd(2)-1, rnd(2)-1).multiplyScalar((small*.8+figSize)/2);
-			if (!figure.children.some(el=>el.tr.pos.distanceTo(pos)<(sizeI+el.tr.size)*.53))
+			if (!figure.children.some(el=>el.tr.pos.distanceTo(pos)<(sizeI+el.tr.size)*.536))
 				 break;
 			//if (!n) sizeI=small;
-			sizeI*=n<50?.995:.99995;
+			sizeI*=n<50?.9934:.99998;
 			pos=false;
 		}
 		if (!pos) {console.log(i); break};
@@ -259,7 +259,7 @@ function initMain(){
 		figure.add(cube);
 		cube.position.copy(pos).multiplyScalar(100);
 		cube.rotation.set(rnd(.5)-.25, rnd(.5)-.25, rnd(.5)-.25);
-		cube.rotation.multiplyScalar(i<4?.3:1);
+		cube.rotation.multiplyScalar(i<4?.3:.9);
 		//console.log(isCu, CuCount);
 
 		cube.tr={
@@ -378,11 +378,11 @@ requestAnimationFrame( function animate() {
 			particles[i].applyQuaternion(tr.dq.normalize());
 		}
 	}
-	var delta2=delta*.55
+	var delta2=delta*.57
 	dPos+=(2-dPos)*delta2/2;
 	var dRo=dPos*dPos*dPos*delta2*.2*roV;
 	ro+=dRo;
-	roV=1-Math.pow(ro/1.3/PI, 5);
+	roV=1-Math.pow(ro/1.275/PI, 5);
 	if (window.showMainAnimation) {
 		main.traverse(function(el){
 			if (!el.isMesh) return;
@@ -394,7 +394,7 @@ requestAnimationFrame( function animate() {
 				 //.slerp(q0, el.tr.pos.distanceTo(el.position)*.01)
 			}
 		});
-		figure.rotateOnAxis(main.tr.axis, -delta2*3.34*(roV));
+		figure.rotateOnAxis(main.tr.axis, -delta2*3.36*(roV));
 		around.rotateOnAxis(main.tr.axis, -delta2*roV*roV*.7);
 		figure.rotateOnWorldAxis(main.tr.axisW, dRo);
 		around.rotateOnWorldAxis(main.tr.axisW, dRo*.9);
