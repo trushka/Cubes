@@ -237,19 +237,19 @@ function initMain(){
 		dq: new THREE.Quaternion()
 	}
 	//cubes.add(main);
-	function setPos(n, size){
-		if (!n) return false;
-		var pos=vec3(rnd(2)-1, rnd(2)-1, rnd(2)-1).multiplyScalar((small*.6+figSize)/2);
-		if (figure.children.some(el=>el.tr.pos.distanceTo(pos)<(size+el.tr.size)*.42))
-			return setPos(n-1, size*=.99994)
-		else return pos;
-	}
 	for (var i = 0, CuCount=0; i < count; i++) {
-		sizeI=i<4?big:small*rnd(deviation, 1);
+		let sizeI=i<4?big:i<4?small*rnd(deviation, 1):small*(.8+deviation);
 		let pos;
 		if (i<4) pos=vec3().fromArray([[1,1,1],[-1,-1,1],[1,-1,-1],[-1,1,-1]][i]).multiplyScalar(figSize/2)
 		else if (i<8) pos=vec3().fromArray([[1,1,-1],[-1,-1,-1],[1,-1,1],[-1,1,1]][i-4]).multiplyScalar((figSize-small+big)*.43)
-		else pos=setPos(5000,sizeI);
+		else for (var n=0; n<8000; n++) {
+			pos=vec3(rnd(2)-1, rnd(2)-1, rnd(2)-1).multiplyScalar((small*.8+figSize)/2);
+			if (!figure.children.some(el=>el.tr.pos.distanceTo(pos)<(sizeI+el.tr.size)*.53))
+				 break;
+			//if (!n) sizeI=small;
+			sizeI*=n<50?.995:.99995;
+			pos=false;
+		}
 		if (!pos) {console.log(i); break};
 
 		let geom=cubeGeometry(sizeI, bevel);
@@ -259,13 +259,13 @@ function initMain(){
 		figure.add(cube);
 		cube.position.copy(pos).multiplyScalar(100);
 		cube.rotation.set(rnd(.5)-.25, rnd(.5)-.25, rnd(.5)-.25);
-		cube.rotation.multiplyScalar(i<4?.3:1.25);
+		cube.rotation.multiplyScalar(i<4?.3:1);
 		//console.log(isCu, CuCount);
 
 		cube.tr={
 			big: i<4,
 			pos: pos,
-			lerp: i>3?(figSize*1.4-pos.length())*.56/figSize:.56,
+			lerp: i>3?(figSize*2.5-pos.length())*.34/figSize:.56,
 			dq: new THREE.Quaternion(),
 			q: cube.quaternion.clone(),
 			dp: vec3(),
@@ -401,7 +401,7 @@ requestAnimationFrame( function animate() {
 
 		main.tr.dq.slerp(quMouse.slerp(q0, delta*6), delta*10);
 		figure.applyQuaternion((main.tr.dq).slerp(q0, roV).normalize());
-		figure.quaternion.slerp(main.tr.q, delta*.1*(1-roV*roV*roV))
+		figure.quaternion.slerp(main.tr.q, delta*.3*(1-roV))
 		around.applyQuaternion(around.tr.dq.slerp(main.tr.dq, delta*3).slerp(q0, .3));
 		//(around.tr.dq).slerp(q0, roV).normalize());
 		around.rotateOnWorldAxis(around.tr.axisW, -delta*.034);
