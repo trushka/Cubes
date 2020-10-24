@@ -1,4 +1,4 @@
-var density=.22, bevel=1 ,Cu=.17,
+var density=.22, bevel=1 ,Cu=.22,
 	pSise=185, deviation=.7,
 
 	count=480, countAround=20,
@@ -47,10 +47,10 @@ camera.lookAt(0,0,0);
 scene = new THREE.Scene();
 scene.add(camera);
 
-renderer.gammaFactor=1.6
-renderer.outputEncoding=THREE.GammaEncoding
+renderer.gammaFactor=1.6;
+renderer.outputEncoding=THREE.GammaEncoding;
 
-scene.fog=new THREE.Fog(fogColor, camera.near, camera.far)
+scene.fog=new THREE.Fog(fogColor, camera.near, camera.far);
 
 cubes = new THREE.Group();
 particles=cubes.children;
@@ -59,28 +59,20 @@ scene.add(lightH,  cubes);
 var lightE=new THREE.AmbientLight('#fff', -1)
 //scene.add(lightE);
 
-scene.rotation.y=-1
+scene.rotation.y=-1;
 scene.updateMatrixWorld();
 
-new THREE.IcosahedronGeometry(1,1).vertices.forEach((v, i)=>{
-	//console.log(v);
-	if (v.y<-.2) return;
-	var light=new THREE.DirectionalLight('#aa9', .011);
-	if (v.y<.3 && v.z<.25 && (Math.random()>.5 || v.z<.1)) light.intensity*=-.2;
-	v.z+=.3; v.y-=.2;
-	light.color.r+=rnd(.2);
-	light.color.g+=rnd(.2);
-	light.color.b+=rnd(.23);
-	light.position.copy(v.normalize());
-	light.castShadow = false//(v.z>0&&v.y>.5);
-	//scene.add(light);
-})
 new THREE.EXRLoader()
  .setDataType( THREE.UnsignedByteType )
  //.setPath( 'textures/equirectangular/' )
  .load( 'city.exr', function ( texture ) {
-
-	scene.environment = pmremGenerator.fromEquirectangular( texture ).texture;
+ 	renderer._r=renderer.render;
+ 	renderer.render=function(s,c){
+ 		renderer.render=renderer._r;
+ 		renderer.render(s,c);
+ 		pmremGenerator._blur( renderer.getRenderTarget(), 0, 0, .012 );
+ 	}
+	scene.environment = pmremGenerator.fromEquirectangular( texture, .1 ).texture;
 	// texture.minFilter=THREE.LinearMipmapLinearFilter;
 	// texture.generateMipmaps=true;
 	//  = new THREE.WebGLCubeRenderTarget(512)
@@ -106,13 +98,20 @@ THREE.ShaderChunk.bumpmap_pars_fragment.replace('dBx, dBy', 'dBx*abs(dBx), dBy*a
 
 var material = new THREE.MeshStandardMaterial({
 	//flatShading: true,
-	onBeforeCompile: function(){console.log(this)},
-	metalness: .99,
-	roughness: .23,
+	onBeforeCompile: function(sh){
+		//console.log(this)
+		sh.fragmentShader=
+		sh.fragmentShader.replace('<metalnessmap_fragment>','<metalnessmap_fragment>\n\
+			metalnessFactor*=.08; metalnessFactor+=.92;')
+		// .replace('#include <roughnessmap_fragment>',
+		// 	THREE.ShaderChunk.roughnessmap_fragment.replace('.g','.g*.8+.2'))
+	},
+	metalness: 1.4,
+	roughness: .13,
 	color: color,
 	bumpMap: bTexture,
 	roughnessMap: bTexture,
-	metalnessMap: bTexture,
+	metalnessMap: mTexture,
 	map: mTexture,
 	//aoMap: bTexture,
 	aoMapIntensity: 1.6,
@@ -139,7 +138,7 @@ function cubeGeometry( size, bevel ) {
   shape.lineTo(-x, y-bevel);
   shape.lineTo(-x+bevel, y);
   shape.lineTo(x-bevel, y);
-  let geometry = new THREE.ExtrudeBufferGeometry( shape, {
+  let geometry = new THREE.ExtrudeGeometry( shape, {
     depth: size - bevel * 2,
     bevelEnabled: true,
     bevelSegments: 1,
@@ -150,6 +149,19 @@ function cubeGeometry( size, bevel ) {
   });
   
   geometry.center();
+  geometry.faces.forEach(f=>{
+  	f.vertexNormals.forEach((n,i)=>{
+  		var v=geometry.vertices[f['abc'[i]]];
+  		n.multiplyScalar((big+size)*21).add(v).normalize();
+  		//console.log(f['abc'[i]],'abc'[i])
+  	})
+  })
+  const m=new THREE.Matrix3();
+  m.setUvTransform(rnd(1250), rnd(1250),1,1,rnd(2*PI),0,0);
+  geometry.faceVertexUvs[0].forEach(ar=>ar.forEach(uv=>{
+  	//console.log(uv);
+  	uv.applyMatrix3(m)
+  }))
   
   return geometry;
 }
@@ -216,7 +228,7 @@ function init(w0) {
 	//particles.length=bCount;
 };
 function initMain(){
-	scene.fog.near=camera.position.length()-figSize*6;
+	scene.fog.near=camera.position.length()-figSize*5.6;
 	scene.add(main=new THREE.Group());
 	main.add(
 		figure=new THREE.Group().rotateZ(-.2).rotateY(-PI/4),
@@ -233,6 +245,7 @@ function initMain(){
 			new THREE.Euler(PI/5, PI/4, -PI/2))
 	};
 	around.tr={
+		axis: main.tr.axisW.clone(),
 		axisW: vec3(0,1,0).rotate(-PI/6, PI/4),
 		dq: new THREE.Quaternion()
 	}
@@ -241,7 +254,7 @@ function initMain(){
 		let sizeI=i<4?big:i<4?small*rnd(deviation, 1):small*(.9+deviation);
 		let pos;
 		if (i<4) pos=vec3().fromArray([[1,1,1],[-1,-1,1],[1,-1,-1],[-1,1,-1]][i]).multiplyScalar(figSize/2)
-		else if (i<8) pos=vec3().fromArray([[1,1,-1],[-1,-1,-1],[1,-1,1],[-1,1,1]][i-4]).multiplyScalar((figSize-small+big)*.43)
+		else if (i<8) pos=vec3().fromArray([[1,1,-1],[-1,-1,-1],[1,-1,1],[-1,1,1]][i-4]).multiplyScalar((figSize-sizeI+big)*.47)
 		else for (var n=0; n<18000; n++) {
 			pos=vec3(rnd(2)-1, rnd(2)-1, rnd(2)-1).multiplyScalar((small*.8+figSize)/2);
 			if (!figure.children.some(el=>el.tr.pos.distanceTo(pos)<(sizeI+el.tr.size)*.536))
@@ -394,17 +407,24 @@ requestAnimationFrame( function animate() {
 				 //.slerp(q0, el.tr.pos.distanceTo(el.position)*.01)
 			}
 		});
-		figure.rotateOnAxis(main.tr.axis, -delta2*3.36*(roV));
+		figure.rotateOnAxis(main.tr.axis, -delta2*3.45*(roV));
 		around.rotateOnAxis(main.tr.axis, -delta2*roV*roV*.7);
 		figure.rotateOnWorldAxis(main.tr.axisW, dRo);
 		around.rotateOnWorldAxis(main.tr.axisW, dRo*.9);
 
 		main.tr.dq.slerp(quMouse.slerp(q0, delta*6), delta*10);
 		figure.applyQuaternion((main.tr.dq).slerp(q0, roV).normalize());
-		figure.quaternion.slerp(main.tr.q, delta*.3*(1-roV))
+		//figure.quaternion.slerp(main.tr.q, delta*.3*(1-roV))
 		around.applyQuaternion(around.tr.dq.slerp(main.tr.dq, delta*3).slerp(q0, .3));
 		//(around.tr.dq).slerp(q0, roV).normalize());
-		around.rotateOnWorldAxis(around.tr.axisW, -delta*.034);
+		let ro1=-delta*.03*(1-roV)
+		figure.rotateOnWorldAxis(main.tr.axisW, ro1);
+		around.rotateOnWorldAxis(around.tr.axisW, -delta*.034)
+		 .rotateOnWorldAxis(around.tr.axis, ro1*.8);
+		if (roV && roV<.004) {
+			main.tr.axisW.rotate(rnd(.1, -.05),rnd(.1, -.05),rnd(.1, -.05));
+			around.tr.axis.lerp(main.tr.axisW, delta*.1)
+		}
 	}
 	renderer.render( scene, camera );
 	//document.body.style.background=touched?'#0a6':''
@@ -414,6 +434,7 @@ var dPos=0, roV=1, ro=-1.3, mouse0=vec3(),
 
 'mousedown mousemove touchstart touchmove'.split(' ').forEach(eType=>{
 	addEventListener(eType, e=>{
+		if (!canvas._pos) return;
 		var touches=e.changedTouches||[e];
 		var x=(touches[0].clientX-canvas._pos.left) / W  * 2 - 1,
 			y=-(touches[0].clientY-canvas._pos.top) / H  * 2 + 1,
@@ -430,5 +451,5 @@ var dPos=0, roV=1, ro=-1.3, mouse0=vec3(),
 	})
 })
 'mouseup touchend touchcancel blur mouseleave'.split(' ').forEach(eType=>{
-	document.addEventListener(eType, e=>{ console.log(touched=false) })
+	document.addEventListener(eType, e=>{ touched=false })
 })
