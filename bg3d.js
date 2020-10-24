@@ -72,7 +72,7 @@ new THREE.EXRLoader()
  		renderer.render(s,c);
  		pmremGenerator._blur( renderer.getRenderTarget(), 0, 0, .012 );
  	}
-	scene.environment = pmremGenerator.fromEquirectangular( texture, .1 ).texture;
+	scene.environment = pmremGenerator.fromEquirectangular( texture ).texture;
 	// texture.minFilter=THREE.LinearMipmapLinearFilter;
 	// texture.generateMipmaps=true;
 	//  = new THREE.WebGLCubeRenderTarget(512)
@@ -106,8 +106,8 @@ var material = new THREE.MeshStandardMaterial({
 		// .replace('#include <roughnessmap_fragment>',
 		// 	THREE.ShaderChunk.roughnessmap_fragment.replace('.g','.g*.8+.2'))
 	},
-	metalness: 1.4,
-	roughness: .13,
+	metalness: 1.25,
+	roughness: .16,
 	color: color,
 	bumpMap: bTexture,
 	roughnessMap: bTexture,
@@ -152,7 +152,7 @@ function cubeGeometry( size, bevel ) {
   geometry.faces.forEach(f=>{
   	f.vertexNormals.forEach((n,i)=>{
   		var v=geometry.vertices[f['abc'[i]]];
-  		n.multiplyScalar((big+size)*21).add(v).normalize();
+  		n.multiplyScalar((big+size)*25).add(v).normalize();
   		//console.log(f['abc'[i]],'abc'[i])
   	})
   })
