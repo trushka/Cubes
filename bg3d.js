@@ -1,11 +1,13 @@
-var density=.22, bevel=1 ,Cu=.22,
+var bTexture=new THREE.TextureLoader().load('images/metall3_.png'),
+	mTexture=new THREE.TextureLoader().load('images/map.jpg'),
+	envPath='images/city.exr';
+
+var density=.22, bevel=1, Cu=.22,
 	pSise=185, deviation=.7,
 
-	count=480, countAround=20,
 	big=340*1.2, small=135*1.21,
 	figSize=600*1.1,
 
-	bumpMap='bump.jpg',
 	force=.005, parallax=1100,
 	fogColor='#171717', //page background color
 	color='#8d8755', CuColor='#f70', expandColor=3.6,
@@ -14,8 +16,10 @@ var density=.22, bevel=1 ,Cu=.22,
 
 	camera, scene, renderer, light, pos0, size,
 	cubes, particles, figure, around, main,
+	W, H, aspect=1, dpr, vMin,
 	q0=new THREE.Quaternion(),
-	vec3=function(x,y,z){return new THREE.Vector3(x||0, y||0, z||0)}, lookAt=vec3(0,0,0), PI=Math.PI;
+	vec3=function(x,y,z){return new THREE.Vector3(x||0, y||0, z||0)},
+	lookAt=vec3(0,0,0), PI=Math.PI;
 
 THREE.Vector3.prototype.rotate=function(x,y,z,t){
 	return this.applyEuler(new THREE.Euler(x,y,z,t))
@@ -33,9 +37,7 @@ THREE.Euler.prototype.multiplyScalar=THREE.Vector3.prototype.multiplyScalar;
 function rnd(a,b) {return Math.random()*(a||1)+(b||0)};
 
 var clock = new THREE.Clock();
-var canvas=document.querySelector('.renderer'),
-	W, H, aspect=1, vMin, dpr=1, bCount, bR=500, bdR=50, PI=Math.PI;
-var bgObj, bGeometry=new THREE.BufferGeometry(), bVerts=[], bTrans=[], bRR=bR*bR, bRR2=(bR+bdR)*(bR+bdR);
+var canvas=document.querySelector('.renderer');
 
 renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, canvas: canvas});//
 //renderer.shadowMap.enabled = true;
@@ -65,7 +67,7 @@ scene.updateMatrixWorld();
 new THREE.EXRLoader()
  .setDataType( THREE.UnsignedByteType )
  //.setPath( 'textures/equirectangular/' )
- .load( 'city.exr', function ( texture ) {
+ .load( envPath, function ( texture ) {
  	renderer._r=renderer.render;
  	renderer.render=function(s,c){
  		renderer.render=renderer._r;
@@ -85,8 +87,6 @@ new THREE.EXRLoader()
 var pmremGenerator = new THREE.PMREMGenerator( renderer );
 pmremGenerator.compileEquirectangularShader();
 
-var bTexture=new THREE.TextureLoader().load('metall3_.png');
-var mTexture=new THREE.TextureLoader().load('map.jpg');
 mTexture.wrapT = mTexture.wrapS = 
 bTexture.wrapS = bTexture.wrapT = THREE.RepeatWrapping;
 mTexture.offset.set(1.4, 1.5);
@@ -250,7 +250,7 @@ function initMain(){
 		dq: new THREE.Quaternion()
 	}
 	//cubes.add(main);
-	for (var i = 0, CuCount=0; i < count; i++) {
+	for (var i = 0, CuCount=0; i < 200; i++) {
 		let sizeI=i<4?big:i<4?small*rnd(deviation, 1):small*(.9+deviation);
 		let pos;
 		if (i<4) pos=vec3().fromArray([[1,1,1],[-1,-1,1],[1,-1,-1],[-1,1,-1]][i]).multiplyScalar(figSize/2)
@@ -296,8 +296,8 @@ function initMain(){
 			return setOrbitPos(n-1)
 		} else return pos;
 	}
-	for (var i = 0, CuCount=0; i < count; i++) {
-		sizeI=small*rnd(deviation, 1)*.6;
+	for (var i = 0, CuCount=0; i < 200; i++) {
+		let sizeI=small*rnd(deviation, 1)*.6;
 		let pos=setOrbitPos(5000);
 		if (!pos) {console.log(i); break};
 		//console.log(pos);
@@ -364,7 +364,7 @@ requestAnimationFrame( function animate() {
 			scrPos.project(camera);
 			scrPos.x=(scrPos.x+1)/2;
 
-			F=vec3();
+			let F=vec3();
 			if (scrPos.x<-1 ) F.x=-force;
 			if (scrPos.x>1 ) F.x=force;
 			if (scrPos.y<-1 || scrPos.y>1) pos.y=-Math.sign(pos.y)*(posY/scrPos.y+tr.size);
